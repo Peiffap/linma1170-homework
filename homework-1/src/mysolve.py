@@ -9,17 +9,15 @@
 
 SolverType = 'QR'
 
-import scipy.sparse  # Only for tests
-import scipy.sparse.linalg  # Only for tests
 import numpy as np
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 
 def mysolve(A, b):
     if SolverType == 'scipy':
-        return True, scipy.sparse.linalg.spsolve(A, b)
+        return True, scipy.sparse.linalg.spsolve(A, b)  # needs import
     elif SolverType == 'QR':
-        return True, QRSolve(A, b)
+        return True, QRsolve(A, b)
     #elif SolverType == 'LU':
         # write here your code for the LU solver
     #elif SolverType == 'GMRES':
@@ -28,7 +26,7 @@ def mysolve(A, b):
         return False, 0
     
 
-def QRfactorize(A):
+def QR(A):
     """
     Calculates part of the Householder QR factorization of a matrix A.
     
@@ -85,7 +83,7 @@ def QRsolve(A, b):
     b = np.array(b, dtype=np.float64)
     m, n = A.shape
     
-    V, R = QRfactorize(A)
+    V, R = QR(A)
     
     x = np.zeros(m)
     
@@ -101,28 +99,31 @@ def QRsolve(A, b):
     return x
 
 
-def plot_complexity():
+def plot_complexity(precision='report'):
     """
     This function plots various graphs that give more insight
     into how the QRsolve function works
-    and how it compares to the various built-in solvers in the SciPy library.
+    and how it compares to the built-in solver in the NumPy library.
     
     
     """
-    N = range(200, 400, 10)
+    if precision == 'test':
+        N = range(20, 400, 20)
+    elif precision == 'report':
+        N = range(20, 1000, 10)
     T = []
     V = []
     for n in N:
         A = np.random.rand(n, n)
         b = np.random.random(n)
         start_time_QR = timer()
-        QRSolve(A,b)
+        QRsolve(A,b)
         t_QR = timer()-start_time_QR
         T.append(t_QR)
-        start_time_SciPy = timer()
+        start_time_NumPy = timer()
         np.linalg.solve(A,b)
-        t_SciPy = timer()-start_time_SciPy
-        V.append(t_SciPy)
+        t_NumPy = timer()-start_time_NumPy
+        V.append(t_NumPy)
         
     logN = np.log(N)
     logT = np.log(T)
@@ -130,9 +131,9 @@ def plot_complexity():
         
     # Linear regression
     fit_QR = np.polyfit(logN, logT, 1)
-    fit_SciPy = np.polyfit(logN, logV, 1)
+    fit_NumPy = np.polyfit(logN, logV, 1)
     fit_fn_QR = np.poly1d(fit_QR)
-    fit_fn_SciPy = np.poly1d(fit_SciPy)
+    fit_fn_NumPy = np.poly1d(fit_NumPy)
     
     # Cubic fit
     fit_QR3 = np.polyfit(N, T, 3)
@@ -147,11 +148,11 @@ def plot_complexity():
               r"as a function of $n$, the size of $A$")
     plt.show()
     
-    # Logarithmic plot of SciPy execution time
-    plt.plot(logN, logV, 'ro', logN, fit_fn_SciPy(logN), '--r')
+    # Logarithmic plot of NumPy execution time
+    plt.plot(logN, logV, 'ro', logN, fit_fn_NumPy(logN), '--r')
     plt.xlabel(r"$\log(n)$")
     plt.ylabel(r"$\log(t)$")
-    plt.title(r"Execution time of SciPy on a logarithmic scale"
+    plt.title(r"Execution time of np.linalg.solve on a logarithmic scale"
               "\n"
               r"as a function of $n$, the size of $A$")
     plt.show()
@@ -160,11 +161,11 @@ def plot_complexity():
     plt.plot(N, T, 'go', N, fit_fn_QR3(N), '--g')
     plt.title(r"Execution time of QRsolve"
               "\n"
-              r" as a function of the size of $A$")
-    plt.xlabel(r"$n$, the size of the matrix $A \in \mathbb{R}^{n \times n}$")
-    plt.ylabel("Execution time")
+              r" as a function of $n$, the size of $A$")
+    plt.xlabel(r"$n$")
+    plt.ylabel(r"$t$")
     plt.show()
 
 
 if __name__ == "__main__":
-    plot_complexity()
+    plot_complexity('report')
