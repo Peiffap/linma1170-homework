@@ -9,9 +9,11 @@
 
 SolverType = 'QR'
 
-import scipy.sparse
-import scipy.sparse.linalg
+import scipy.sparse  # Only for tests
+import scipy.sparse.linalg  # Only for tests
 import numpy as np
+import matplotlib.pyplot as plt
+from timeit import default_timer as timer
 
 def mysolve(A, b):
     if SolverType == 'scipy':
@@ -26,7 +28,7 @@ def mysolve(A, b):
         return False, 0
     
 
-def QR(A):
+def QRfactorize(A):
     """
     Calculates part of the Householder QR factorization of a matrix A.
     
@@ -42,34 +44,28 @@ def QR(A):
            
         Both V and R are NumPy arrays.
     """
-    m = len(A)
-    n = len(A[0])
-    A = np.array(A, dtype=float)
+
+    A = np.array(A, dtype=np.float64)
+    m, n = A.shape
     V = np.zeros((m, n))  # Stores the different reflection vectors
     
-    def find_unit_vector(l):
-        e1 = np.zeros(l)  # Unit vector
-        e1[0] = 1
-        return e1
-    
     def new_sign(x):
-        if x == 0:
+        if x >= 0:
             return 1
-        return np.sign(x)
+        return -1
     
-    for k in range(n-1):
+    for k in range(n):
+        e1 = np.zeros(m-k)
+        e1[0] = 1
         x = A[k:m, k]
-        vk = new_sign(x[0])*np.linalg.norm(x)*find_unit_vector(len(x)) + x
-        vk = vk/np.linalg.norm(vk)
-        vk.shape = (vk.shape[0], 1)
-        A[k:m, k:n] = A[k:m, k:n] - 2.* vk * (vk.T @ A[k:m, k:n])
-        vk.shape = vk.shape[0]
-        V[k:m, k] = vk
+        V[k:m, k] = new_sign(x[0])*np.linalg.norm(x, 2)*e1 + x[:]
+        V[k:m, k] = V[k:m, k]/np.linalg.norm(V[k:m, k], 2)
+        A[k:m, k:n] = A[k:m, k:n] - 2.* np.outer(V[k:m, k], np.dot(V[k:m, k], A[k:m, k:n]))
         
     return V, A
 
 
-def QRSolve(A, b):
+def QRsolve(A, b):
     """
     This function calculates the solution of a linear system of equations
     given under the form Ax = b. It uses QR factorization
@@ -85,44 +81,90 @@ def QRSolve(A, b):
     Output:
         x: the solution to Ax = b, namely x = A^{-1}b = R^{-1}Q*b.
     """
-    m = len(A)
-    n = len(A[0])
-    b = np.array(b, dtype=float)
     
-    V, R = QR(A)
+    b = np.array(b, dtype=np.float64)
+    m, n = A.shape
     
-    V = np.array(V, dtype=float)
+    V, R = QRfactorize(A)
     
-    x = np.zeros((n, 1))
-    
-    def vecmatsum(xvec, Rmat, j):
-        sum = 0
-        for k in range(j+1, len(xvec)):
-            sum += xvec[k] * Rmat[j][k]
-            
-        return sum
+    x = np.zeros(m)
     
     for k in range(n):
-        vk = np.reshape(V[k:m, k], (m-k, 1))
-        b[k:m] = b[k:m] - 2.* vk @ (np.transpose(vk) @ b[k:m])
+        b[k:m] = b[k:m] - 2.* np.dot(V[k:m, k], np.dot(V[k:m, k], b[k:m]))
         
     
-    for i in range(n):
-        j = n-i-1
-        x[j] = (b[j] - vecmatsum(x, R, j))/R[j][j]
+    for i in range(n-1, -1, -1):
+        for j in range(i+1, n):
+            b[i] = b[i] - R[i, j]*x[j]
+        x[i] = b[i]/R[i, i]
         
-    return np.reshape(x, (1, len(A[0]))).flatten()
+    return x
 
 
-A = np.random.rand(1000, 1000)
-b = np.random.rand(1000, 1)
-
-R1 = QRSolve(A, b)
-R2 = scipy.sparse.linalg.spsolve(A, b)
-
-print(np.allclose(R1, R2, 1e-5, 1e-5))
-
-#print("QRSolve:", , "\n")
-#print("SciPy:", , "\n")
-            
+def plot_complexity():
+    """
+    This function plots various graphs that give more insight
+    into how the QRsolve function works
+    and how it compares to the various built-in solvers in the SciPy library.
+    
+    
+    """
+    N = range(200, 400, 10)
+    T = []
+    V = []
+    for n in N:
+        A = np.random.rand(n, n)
+        b = np.random.random(n)
+        start_time_QR = timer()
+        QRSolve(A,b)
+        t_QR = timer()-start_time_QR
+        T.append(t_QR)
+        start_time_SciPy = timer()
+        np.linalg.solve(A,b)
+        t_SciPy = timer()-start_time_SciPy
+        V.append(t_SciPy)
         
+    logN = np.log(N)
+    logT = np.log(T)
+    logV = np.log(V)
+        
+    # Linear regression
+    fit_QR = np.polyfit(logN, logT, 1)
+    fit_SciPy = np.polyfit(logN, logV, 1)
+    fit_fn_QR = np.poly1d(fit_QR)
+    fit_fn_SciPy = np.poly1d(fit_SciPy)
+    
+    # Cubic fit
+    fit_QR3 = np.polyfit(N, T, 3)
+    fit_fn_QR3 = np.poly1d(fit_QR3)
+    
+    # Logarithmic plot of QRsolve execution time
+    plt.plot(logN, logT, 'bo', logN, fit_fn_QR(logN), '--b')
+    plt.xlabel(r"$\log(n)$")
+    plt.ylabel(r"$\log(t)$")
+    plt.title(r"Execution time of QRsolve on a logarithmic scale"
+              "\n"
+              r"as a function of $n$, the size of $A$")
+    plt.show()
+    
+    # Logarithmic plot of SciPy execution time
+    plt.plot(logN, logV, 'ro', logN, fit_fn_SciPy(logN), '--r')
+    plt.xlabel(r"$\log(n)$")
+    plt.ylabel(r"$\log(t)$")
+    plt.title(r"Execution time of SciPy on a logarithmic scale"
+              "\n"
+              r"as a function of $n$, the size of $A$")
+    plt.show()
+    
+    # Regular plot of QRsolve execution time
+    plt.plot(N, T, 'go', N, fit_fn_QR3(N), '--g')
+    plt.title(r"Execution time of QRsolve"
+              "\n"
+              r" as a function of the size of $A$")
+    plt.xlabel(r"$n$, the size of the matrix $A \in \mathbb{R}^{n \times n}$")
+    plt.ylabel("Execution time")
+    plt.show()
+
+
+if __name__ == "__main__":
+    plot_complexity()
