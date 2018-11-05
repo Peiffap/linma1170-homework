@@ -7,10 +7,10 @@
 # -clscale 10 coarse mesh
 
 
-# Homework 1 : QR Factorization with Householder reflectors
+# Homework 2 : SVD and condition number
 # @author Gilles Peiffer, 24321600
 # gilles.peiffer@student.uclouvain.be
-# Oct. 23, 2018
+# Nov. 9, 2018
 
 
 SolverType = 'scipy'
@@ -19,10 +19,11 @@ import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
+import csv # for analysis
 
-def mysolve(A, b):
+def mysolve(A, b, clscale):
     if SolverType == 'scipy':
-        cond_anal(A)
+        cond_anal(A, clscale)
         return True, scipy.sparse.linalg.spsolve(A, b)  # Needs import
     #elif SolverType == 'QR':
         # return True, QRsolve(A, b)
@@ -34,29 +35,32 @@ def mysolve(A, b):
         return False, 0
      
 
-def cond_anal(A):
-     U, s, Vh = scipy.linalg.svd(A)
-     kappa = max(s)/min(s)
+def cond_anal(A, clscale):
+    if clscale == 1:
+        wmode = 'w'
+    else:
+        wmode = 'a'
+        
+    with open('cond_anal_clscale.csv', mode=wmode) as dat:
+        dat_writer = csv.writer(dat, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        dat_writer.writerow([clscale, np.linalg.cond(A)])
 
 
 def low_rank_approx(A,b):
     U, s, Vh = scipy.linalg.svd(A)
-    sol = 0
+    ensum = 0
     for i in range(len(s)):
-        sol += np.dot(b,(np.outer(U.T[i], Vh[i])/s[i]))
-    return sol
+        ensum += np.dot(b, (np.outer(U.T[i], Vh[i])/s[i]))
+    return ensum
 
 
-def plot_complexity(precision='report'):
+def cond_plot():
     """
-    This function plots various graphs that give more insight
-    into how the QRsolve function works
-    and how it compares to the built-in solver in the NumPy library.
+    This function plots graphs that make it possible to easily analyse
+    the impact of different variations to the model of the coil in ccore.py.
+    Data is written from the file written in the previous functions
     
-    The default argument is for report-quality graphs,
-    if the precision parameter is set to 'test',
-    it executes much quicker but doesn't give nice graphs.
-    """
+    
     if precision == 'test':
         N = range(20, 400, 20)
     elif precision == 'report':
@@ -115,7 +119,17 @@ def plot_complexity(precision='report'):
     plt.xlabel(r"$n$")
     plt.ylabel(r"$t$")
     plt.show()
-
+    """
+    
+    with open('cond_anal_clscale.csv') as clres:
+        clres_reader = csv.reader(clres, delimiter=',')
+        clscale = []
+        cond = []
+        for row in clres_reader:
+            clscale.append(row[0])
+            cond.append(row[1])
+            
+    
 
 if __name__ == "__main__":
-    plot_complexity('test')
+    cond_plot()

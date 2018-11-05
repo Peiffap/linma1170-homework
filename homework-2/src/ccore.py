@@ -157,7 +157,7 @@ def create_geometry():
     model.setPhysicalName(1, 11, 'DIR')
     return
 
-def solve():
+def solve(clscale):
     mshNodes = np.array(model.mesh.getNodes()[0])
     numMeshNodes = len(mshNodes)
     printf('numMeshNodes =', numMeshNodes)
@@ -312,7 +312,7 @@ def solve():
 
     A = globalmat[:numUnknowns,:numUnknowns]
     b = globalrhs[:numUnknowns]
-    success, sol = mysolve(A, b)
+    success, sol = mysolve(A, b, clscale)
     if not success:
         errorf('Solver not implemented yet')
     sol = np.append(sol,np.zeros(numMeshNodes-numUnknowns))
@@ -326,26 +326,27 @@ def solve():
     printf('Flux (computed) =', np.max(sol)-np.min(sol))
     return
 
+
+
+if __name__ == "__main__":
+    model = gmsh.model
+    factory = model.geo
+    gmsh.initialize(sys.argv)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", clscale)
+    gmsh.option.setNumber("General.Terminal", 1)
+    gmsh.option.setNumber("View[0].IntervalsType", 3)
+    gmsh.option.setNumber("View[0].NbIso", 20)
     
-model = gmsh.model
-factory = model.geo
-gmsh.initialize(sys.argv)
-
-gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", clscale)
-gmsh.option.setNumber("General.Terminal", 1)
-gmsh.option.setNumber("View[0].IntervalsType", 3)
-gmsh.option.setNumber("View[0].NbIso", 20)
-
-create_geometry()
-if(0):
-    model.mesh.setRecombine(2,COILP)
-    model.mesh.setRecombine(2,COILN)
-    model.mesh.setRecombine(2,AIR)
-    model.mesh.setRecombine(2,CORE)
-model.mesh.generate(2)
-
-solve()
-gmsh.fltk.run()
+    create_geometry()
+    if(0):
+        model.mesh.setRecombine(2,COILP)
+        model.mesh.setRecombine(2,COILN)
+        model.mesh.setRecombine(2,AIR)
+        model.mesh.setRecombine(2,CORE)
+    model.mesh.generate(2)
+    
+    solve(clscale)
+    #gmsh.fltk.run()
     
 # Solve linear system Ax=b
 
