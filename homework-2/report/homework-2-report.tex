@@ -36,7 +36,7 @@
 \begin{document}
 \section{Paramètres influençant le conditionnement de $A$}
 \label{param}
-\fbox{Largeur de l'entrefer}
+\subsection{Largeur de l'entrefer}
 Moins l'entrefer est large, plus le maillage doit être raffiné à cet endroit.
 Nous remarquons donc que pour des entrefers de petite taille,
 le conditionnement de la matrice augmente rapidement (figure~\ref{fig:gapcond}).
@@ -51,7 +51,7 @@ mais plus celui-ci est grand, moins il y a de valeurs singulières, comme montr�
 Lorsque nous commentons la ligne \texttt{lc3=D/2.*R} et la remplaçons par \texttt{lc3=E/2.*R}, nous augmentons en fait la taille de l'entrefer.
 L'effet sur le maillage est montré à la figure~\ref{fig:mesh}.
 
-\fbox{Perméabilité relative du noyau magnétique}
+\subsection{Perméabilité relative du noyau magnétique}
 Plus la perméabilité relative du noyau magnétique augmente,
 plus le conditionnement de $A$ augmente aussi, selon une loi approximativement logarithmique (voir figure~\ref{fig:mucond}). On écrit (en notant $\mu_{\mathrm{r}}$ la perméabilité)
 \[
@@ -61,101 +61,101 @@ plus le conditionnement de $A$ augmente aussi, selon une loi approximativement l
 Le spectre change uniquement pour les valeurs singulières les plus petites,
 et celles-ci deviennent encore plus basses, comme montré sur la figure~\ref{fig:muspec}.
 
-\fbox{Courant injecté dans la bobine}
+\subsection{Courant injecté dans la bobine}
 Le courant injecté dans la bobine ne change en rien le maillage,
 et n'a donc aucun effet ni sur le conditionnement de la matrice $A$,
 ni sur son spectre de valeurs singulières,
 comme montré aux figures~\ref{fig:jcond} et~\ref{fig:jspec}.
 
-\fbox{Raffinement du maillage}
+\subsection{Raffinement du maillage}
 Afin de voir l'effet du raffinement du maillage sur le conditionnement de la matrice $A$, nous avons joué sur le paramètre \texttt{clscale} de \texttt{ccore.py}.
 Plus celui-ci est petit, plus le maillage est fin.
-Le conditionnement de $A$ diminue de façon linéaire plus \texttt{clscale} augmente, mais augmente soudainement pour la valeur de $34$.
-Cela est dû à l'algorithme de maillage.
-On écrit donc en général (en notant la valeur de \texttt{clscale} par $c$)
+Le conditionnement de $A$ diminue de façon linéaire plus \texttt{clscale} augmente, mais augmente soudainement pour la valeur de $34$ (voir figure~\ref{fig:clscalecond}).
+Cela est dû à l'algorithme de maillage, qui calcule pour cette valeur de \texttt{clscale} des éléments très plats (mauvais pour le conditionnement).
+On écrit donc en général (en notant \texttt{clscale} par $c$)
 \[
 \kappa(A) \sim \left\{ \begin{array}{ll}
 \zeta + \eta c & \textnormal{si $c < 34$}\,,\\
-\theta + \iota c & \textnormal{sinon.}
-\end{array}\right.
+\theta + \iota c & \textnormal{sinon,}
+\end{array}\right. \quad \zeta, \eta, \theta, \iota \in \mathbb{R}\,.
 \]
 
 Le spectre des valeurs singulières a toujours la même forme,
-mais est ``compressé'' lorsque le paramètre \texttt{clscale} augmente.
+mais est ``compressé'' lorsque le paramètre \texttt{clscale} augmente, comme montré sur la figure~\ref{fig:clscalespec}.
 
 \section{Approximation de rang faible}
+\label{approx}
 Nous cherchons à approximer la matrice $A \in \mathbb{R}^{m \times n}$ de rang $r$ par une somme de $\nu$ matrices de rang $1$ comme suit:
 \(
 A_{\nu} = \sum_{j=1}^{\nu} \sigma_{j} u_{j} v^*_{j}\,. 
 \) 
-Par le Théorème~5.8 pp. 35--36 dans le livre de référence, il est possible de démontrer que cette somme partielle capture l'énergie maximale possible de $A$, et ce autant pour la $2$-norme matricielle (avec laquelle nous travaillons) que pour la norme de Frobenius.
+Par le Théorème~5.8 pp. 35--36 dans le livre de référence,
+il est possible de démontrer que cette somme partielle
+capture l'énergie maximale possible de $A$,
+et ce autant pour la $2$-norme matricielle (avec laquelle nous travaillons)
+que pour la norme de Frobenius.
 On définit alors l'erreur $e_{\nu}$ comme
 \(
 e_{\nu} = \frac{\norm{A - A_{\nu}}_2}{\norm{A}_2}\,.
 \)
 
-\fbox{Influence du premier terme}
-%TODO explain first term proportion
-asdf
+\subsection{Influence du premier terme}
+Plus le système devient grand, moins le premier terme représente une grande partie de l'énergie totale, comme montré sur la figure~\ref{fig:clscalefirst}.
+La relation est approximativement linéaire.
 
-\fbox{Nombre de termes requis pour obtenir une précision donnée}
-%TODO explain terms in function of system size
-asdf
+\subsection{Nombre de termes requis pour obtenir une précision donnée}
+Autant pour une erreur inférieure à $\SI{10}{\percent}$ qu'à $\SI{1}{\percent}$, on observe une relation inversement proportionelle (voir figures~\ref{fig:clscale10} et~\ref{fig:clscale1}).
 
-\fbox{Influence du conditionnement}
-%TODO explain terms in function of condition number
-asdf
+\subsection{Influence du conditionnement}
+L'influence du conditionnement est donc difficile à définir, car en utilisant les données de la question~\ref{param}, on voit que le conditionnement effectue un saut en fonction de \texttt{clscale} (figure~\ref{fig:clscalecond} autour de la valeur $34$), alors que ce n'est pas le cas pour le pourcentage d'énergie contenu dans le premier terme, ni pour le nombre de termes requis pour borner l'énergie.
 
 \appendix
-\section*{Appendices}
-\section{Figures}
-%TODO add figures
-%TODO change figure names
+\section{Appendice: figures}
 \begin{figure}[H]
 	\centering
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{gapcond.png}
 		\caption{Influence de la taille de l'entrefer sur le  conditionnement de $A$.}
 		\label{fig:gapcond}
 	\end{subfigure}\hfill
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{gapspec.png}
 		\caption{Influence de la taille de l'entrefer sur le spectre des valeurs singulières de $A$.}
 		\label{fig:gapspec}
 	\end{subfigure}\hfill
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{mucond.png}
 		\caption{Influence de la perméabilité relative $\mu_{\textnormal{r}}$ sur le conditionnement de $A$.}
 		\label{fig:mucond}
 	\end{subfigure}\hfill
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{muspec.png}
 		\caption{Influence de la perméabilité relative $\mu_{\textnormal{r}}$ sur le spectre des valeurs singulières de $A$.}
 		\label{fig:muspec}
 	\end{subfigure}
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{jcond.png}
 		\caption{Influence de la densité de courant sur le conditionnement de la matrice $A$.}
 		\label{fig:jcond}
 	\end{subfigure}\hfill
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{jspec.png}
 		\caption{Influence de la densité de courant sur le spectre des valeurs singulières de $A$.}
 		\label{fig:jspec}
 	\end{subfigure}\hfill
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{clscalecond.png}
 		\caption{Influence du raffinement du maillage sur le conditionnement de $A$.}
-		\label{fig:lclscalecond}
+		\label{fig:clscalecond}
 	\end{subfigure}\hfill
-	\begin{subfigure}{0.24\textwidth}
+	\begin{subfigure}[t]{0.24\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{clscalespec.png}
 		\caption{Influence du raffinement du maillage sur le spectre des valeurs singulières de $A$.}
@@ -168,13 +168,13 @@ asdf
 
 \begin{figure}[H]
 	\centering
-	\begin{subfigure}{0.33\textwidth}
+	\begin{subfigure}{0.25\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{mesh1.png}
 		\caption{Avec \texttt{lc3=D/2.*R}.}
 		\label{fig:mesh1}
 	\end{subfigure}\hspace{3cm}
-	\begin{subfigure}{0.33\textwidth}
+	\begin{subfigure}{0.25\textwidth}
 		\centering
 		\includegraphics[width=\linewidth]{mesh2.png}
 		\caption{Avec \texttt{lc3=E/2.*R}.}
@@ -182,5 +182,30 @@ asdf
 	\end{subfigure}
 	\caption{Comparaison des maillages en changeant une ligne de code.}
 	\label{fig:mesh}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}[t]{0.32\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{clscalefirst.png}
+		\caption{Pourcentage de l'énergie totale contenue dans le premier terme de la somme décroissant.}
+		\label{fig:clscalefirst}
+	\end{subfigure}\hfill
+	\begin{subfigure}[t]{0.32\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{clscale1.png}
+		\caption{Nombre de termes requis pour obtenir une erreur $e_{\nu} \le \SI{1}{\percent}$.}
+		\label{fig:clscale1}
+	\end{subfigure}\hfill
+	\begin{subfigure}[t]{0.32\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{clscale10.png}
+		\caption{Nombre de termes requis pour obtenir une erreur $e_{\nu} \le \SI{10}{\percent}$.}
+		\label{fig:clscale10}
+	\end{subfigure}
+	\caption{Différents graphes pertinents pour l'analyse de la section~\ref{approx}.
+	Les coefficients de correlation sont toujours calculés par rapport au \emph{curve fit} proposé.}
+	\label{fig:figsec2}
 \end{figure}
 \end{document}

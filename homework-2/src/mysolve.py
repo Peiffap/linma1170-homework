@@ -20,29 +20,26 @@ import numpy as np
 
 def mysolve(A, b):
     if SolverType == 'scipy':
-        i, sol = low_rank_approx(A,b)
-        return True, scipy.sparse.linalg.spsolve(A, b), i
+        nterms, first, sol = low_rank_approx(A,b)
+        return True, scipy.sparse.linalg.spsolve(A, b), nterms, first
     else:
         return False, 0
 
 def low_rank_approx(A,b):
+     sol = 0    
+     solApp = 0
+     percent = 0
+     Etot = 0
      U, s, Vh = np.linalg.svd(A)
-     sol = 0
      for i in range(len(s)):
          sol += np.dot(b,(np.outer(U.T[i], Vh[i])/s[i]))
-     pourcentage = 0
-     i =1
-     sol2=0
-     while i < len(sol) and pourcentage < 0.9 :
-         sol2+=np.dot(b,(np.outer(U.T[len(sol)-i], Vh[len(sol)-i])/s[len(sol)-i]))
-         pourcentage = (np.linalg.norm(sol) - np.linalg.norm(sol-sol2))/np.linalg.norm(sol)
-         first = np.dot(b,(np.outer(U.T[len(sol)-1], Vh[len(sol)-1])/s[len(sol)-1]))
-         first1 =  (np.linalg.norm(sol) - np.linalg.norm(sol-first))/np.linalg.norm(sol)
-         prc = np.linalg.norm(np.dot(b,(np.outer(U.T[len(sol)-1], Vh[len(sol)-1]/s[len(sol)-1]))))/np.linalg.norm(sol)
-         
-         i+=1
-     #print(first1)
-     #print(prc)
-     #print(i)
-     #print(i-1)
-     return first1, sol
+     # necessary number of terms
+     i = 1
+     while i < len(sol) and percent < 0.9:
+         solApp += np.dot(b, (np.outer(U.T[len(sol) - i], Vh[len(sol) - i])/s[len(sol) - i]))
+         percent = (np.linalg.norm(sol) - np.linalg.norm(sol - solApp))/np.linalg.norm(sol)
+         i += 1
+     # energy calculation
+     Etot = sum(np.divide(1, s))
+     first = (1/s[len(s) - 1])/Etot
+     return i - 1, first, sol

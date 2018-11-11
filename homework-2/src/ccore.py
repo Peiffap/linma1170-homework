@@ -321,7 +321,7 @@ def ccore_wrapper(clscale, mur, gap, J):
     
         A = globalmat[:numUnknowns,:numUnknowns]
         b = globalrhs[:numUnknowns]
-        success, sol, i = mysolve(A, b)
+        success, sol, nterms, first = mysolve(A, b)
         if not success:
             errorf('Solver not implemented yet')
         sol = np.append(sol,np.zeros(numMeshNodes-numUnknowns))
@@ -333,7 +333,7 @@ def ccore_wrapper(clscale, mur, gap, J):
         #gmsh.view.write(sview,"a.pos")
         printf('Flux (analytical) =', J*CoilSection/(RelCore+RelGap))
         printf('Flux (computed) =', np.max(sol)-np.min(sol))
-        return A, i
+        return A, nterms, first
 
         
     model = gmsh.model
@@ -353,18 +353,18 @@ def ccore_wrapper(clscale, mur, gap, J):
         model.mesh.setRecombine(2,CORE)
     model.mesh.generate(2)
     
-    A, i = solve()
+    A, nterms, first = solve()
     #gmsh.fltk.run()
-    return A, i
+    return A, nterms, first
 
 
 def data_analysis(precision='report'):
     """
-    This function creates all the plots and graphs used in the report
+    This function creates all the plots and graphs used in the report.
     
     The default precision argument is for report-quality graphs;
     if the precision parameter is set to 'test',
-    it executes much quicker but doesn't give nice graphs.
+    it executes much (much!) quicker but doesn't give nice/complete graphs.
     """
     # Default values
     clscale_def = 16 # Mesh coarseness
@@ -379,10 +379,10 @@ def data_analysis(precision='report'):
     if precision == 'test':
         clscale = range(15, 30)
     else:
-        clscale = range(10, 51)
+        clscale = range(5, 51)
     
     for i in clscale:
-         A, j = ccore_wrapper(i, mur_def, gap_def, J_def)
+         A = ccore_wrapper(i, mur_def, gap_def, J_def)[0]
          U, s, Vh = np.linalg.svd(A)
          clscale_condition.append(np.linalg.cond(A))
          if i == clscale_def:
@@ -427,9 +427,14 @@ def data_analysis(precision='report'):
         plt.plot(clscale, clscale_condition,'ro', vec1, fit_clscale_condition_fn1(vec1), '--r', vec2, fit_clscale_condition_fn2(vec2), '--r')
     plt.xlabel("Mesh coarseness [clscale]")
     plt.ylabel(r"$\kappa(A)$")
-    plt.title(r"Influence of clscale on the condition number of $A$"
-              "\n"
-              "Pearson correlation coefficient : %0.3f" %clscale_condition_corr)
+    if precision == 'test':
+        plt.title(r"Influence of clscale on the condition number of $A$"
+                  "\n"
+                  "Pearson correlation coefficient : %0.3f" %clscale_condition_corr[0])
+    else:
+        plt.title(r"Influence of clscale on the condition number of $A$"
+                  "\n"
+                  "Pearson correlation coefficient : %0.3f" %clscale_condition_corr)
     plt.legend(["Data points", "Linear regression"])
     plt.show()
 
@@ -453,7 +458,7 @@ def data_analysis(precision='report'):
         perm = range(10, 1000, 10)
     
     for i in perm:
-         A, j = ccore_wrapper(clscale_def, i, gap_def, J_def)
+         A = ccore_wrapper(clscale_def, i, gap_def, J_def)[0]
          U, s, Vh = np.linalg.svd(A)
          perm_condition.append(np.linalg.cond(A))
          if i == mur_def:
@@ -504,7 +509,7 @@ def data_analysis(precision='report'):
         gap = np.divide(range(1, 101), 1000.)
     
     for i in gap:
-         A, j = ccore_wrapper(clscale_def, mur_def, i, J_def)
+         A = ccore_wrapper(clscale_def, mur_def, i, J_def)[0]
          U, s, Vh = np.linalg.svd(A)
          gap_condition.append(np.linalg.cond(A))
          if i == gap_def:
@@ -544,7 +549,6 @@ def data_analysis(precision='report'):
     plt.legend([gapblue, gaporange], [r"$\mathrm{gap} = %.3f \mathrm{m}$" %(gap_def), r"$\mathrm{gap} = %.3f \mathrm{m}$" %(gap_par)])
     plt.show()
     
-    
     ## Influence of current density
     # Influence of the current density on the condition number of A
     J_condition = []
@@ -555,7 +559,7 @@ def data_analysis(precision='report'):
         J = range(100000, 10000000, 900000)
     
     for i in J:
-         A, j = ccore_wrapper(clscale_def, mur_def, gap_def, i)
+         A = ccore_wrapper(clscale_def, mur_def, gap_def, i)[0]
          U, s, Vh = np.linalg.svd(A)
          J_condition.append(np.linalg.cond(A))
          if i == J_def:
@@ -588,6 +592,57 @@ def data_analysis(precision='report'):
               "\n"
               r"$\mathrm{clscale} = %i$, $\mu_\mathrm{r} = %i$, $\mathrm{gap} = %.3f \mathrm{m}$" %(clscale_def, mur_def, gap_def))
     plt.legend([Jblue, Jorange], [r"$J = %.0e \mathrm{A}/\mathrm{m}^2$" %(J_def), r"$J = %.0e \mathrm{A}/\mathrm{m}^2$" %(J_par)])
+    plt.show()
+
+    ### Question 2
+    ## Evolution of first term proportion 
+    clscale_nterms = []
+    clscale_first = []
+    if precision == 'test':
+        clscale = range(15, 30)
+    else:
+        clscale = range(5, 51)
+    
+    for i in clscale:
+         A, nterms, first = ccore_wrapper(i, mur_def, gap_def, J_def)
+         U, s, Vh = np.linalg.svd(A)
+         clscale_nterms.append(nterms)
+         clscale_first.append(first)
+         
+    def clscale_first_fit(x, a, b):
+        return a+b*x
+    
+    fit_first_clscale, fit_first_clscale_cov = scipy.optimize.curve_fit(clscale_first_fit, clscale, clscale_first)
+    
+    # Calculate Pearson correlation coefficient and p-value
+    first_condition_corr = pearsonr(clscale, clscale_first)
+         
+    # Plot data
+    plt.plot(clscale, clscale_first, 'yo', clscale, clscale_first_fit(clscale, *fit_first_clscale), '--y')
+    plt.xlabel("Mesh coarseness [clscale]")
+    plt.ylabel("Percentage of energy in the first term")
+    plt.title(r"Energy contained by the first term"
+              "\n"
+              "Pearson correlation coefficient : %0.3f" %first_condition_corr[0])
+    plt.legend(["Data points", "Linear regression"])
+    plt.show()
+    
+    def clscale_nterms_fit(x, a, b):
+        return a+b/x
+    
+    fit_nterms_clscale, fit_nterms_clscale_cov = scipy.optimize.curve_fit(clscale_nterms_fit, clscale, clscale_nterms)
+    
+    # Calculate Pearson correlation coefficient and p-value
+    nterms_condition_corr = pearsonr(clscale, fit_nterms_clscale[0] + np.divide(fit_nterms_clscale[1], clscale))
+         
+    # Plot data
+    plt.plot(clscale, clscale_nterms, 'co', np.divide(range(10000, 510000), 10000.), clscale_nterms_fit(np.divide(range(10000, 510000), 10000.), *fit_nterms_clscale), '--c')
+    plt.xlabel("Mesh coarseness [clscale]")
+    plt.ylabel(r"Number of terms needed to obtain an error $\leq$ 10%")
+    plt.title(r"Numbers of terms needed to bound error as a function of clscale"
+              "\n"
+              "Pearson correlation coefficient : %0.3f" %nterms_condition_corr[0])
+    plt.legend(["Data points", "Inversely linear regression"])
     plt.show()
     
 if __name__ == "__main__":

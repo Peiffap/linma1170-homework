@@ -1,3 +1,10 @@
 \BOOKMARK [1][-]{section.1}{Param\350tres influen\347ant le conditionnement de A}{}% 1
-\BOOKMARK [1][-]{section.2}{Approximation de rang faible}{}% 2
-\BOOKMARK [1][-]{appendix.A}{Figures}{}% 3
+\BOOKMARK [2][-]{subsection.1.1}{Largeur de l'entrefer}{section.1}% 2
+\BOOKMARK [2][-]{subsection.1.2}{Perm\351abilit\351 relative du noyau magn\351tique}{section.1}% 3
+\BOOKMARK [2][-]{subsection.1.3}{Courant inject\351 dans la bobine}{section.1}% 4
+\BOOKMARK [2][-]{subsection.1.4}{Raffinement du maillage}{section.1}% 5
+\BOOKMARK [1][-]{section.2}{Approximation de rang faible}{}% 6
+\BOOKMARK [2][-]{subsection.2.1}{Influence du premier terme}{section.2}% 7
+\BOOKMARK [2][-]{subsection.2.2}{Nombre de termes requis pour obtenir une pr\351cision donn\351e}{section.2}% 8
+\BOOKMARK [2][-]{subsection.2.3}{Influence du conditionnement}{section.2}% 9
+\BOOKMARK [1][-]{appendix.A}{Appendice: figures}{}% 10
