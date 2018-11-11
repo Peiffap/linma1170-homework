@@ -35,37 +35,77 @@
 
 \begin{document}
 \section{Paramètres influençant le conditionnement de $A$}
-\subsection{Largeur de l'entrefer}
+\label{param}
+\fbox{Largeur de l'entrefer}
 Moins l'entrefer est large, plus le maillage doit être raffiné à cet endroit.
-Nous remarquons donc que pour de petites valeurs,
-le conditionnement de la matrice 
-\subsection{Perméabilité relative du noyau magnétique}
-\subsection{Courant injecté dans la bobine}
-Le courant injecté dans la bobine n'est qu'un simple facteur multiplicatif dans les calculs.
-Il n'intervient donc pas dans le conditionnement de la matrice, qui reste constant.
-%TODO vérifier si le spectre est bien translaté vers le haut
-\subsection{Raffinement du maillage}
+Nous remarquons donc que pour des entrefers de petite taille,
+le conditionnement de la matrice augmente rapidement (figure~\ref{fig:gapcond}).
+Si nous appelons $e$ la taille de l'entrefer, on peut écrire
+\[
+\kappa(A) \sim \alpha + \frac{\beta}{e}\,, \quad \alpha, \beta \in \mathbb{R}\,.
+\]
+
+Le spectre reste distribué de façon semblable peu importe la taille de l'entrefer,
+mais plus celui-ci est grand, moins il y a de valeurs singulières, comme montré sur la figure~\ref{fig:gapspec}.
+
+Lorsque nous commentons la ligne \texttt{lc3=D/2.*R} et la remplaçons par \texttt{lc3=E/2.*R}, nous augmentons en fait la taille de l'entrefer.
+L'effet sur le maillage est montré à la figure~\ref{fig:mesh}.
+
+\fbox{Perméabilité relative du noyau magnétique}
+Plus la perméabilité relative du noyau magnétique augmente,
+plus le conditionnement de $A$ augmente aussi, selon une loi approximativement logarithmique (voir figure~\ref{fig:mucond}). On écrit (en notant $\mu_{\mathrm{r}}$ la perméabilité)
+\[
+\kappa(A) \sim \gamma + \delta \log(\mu_{\mathrm{r}} + \varepsilon)\,, \quad \gamma, \delta, \varepsilon \in \mathbb{R}\,. 
+\]
+
+Le spectre change uniquement pour les valeurs singulières les plus petites,
+et celles-ci deviennent encore plus basses, comme montré sur la figure~\ref{fig:muspec}.
+
+\fbox{Courant injecté dans la bobine}
+Le courant injecté dans la bobine ne change en rien le maillage,
+et n'a donc aucun effet ni sur le conditionnement de la matrice $A$,
+ni sur son spectre de valeurs singulières,
+comme montré aux figures~\ref{fig:jcond} et~\ref{fig:jspec}.
+
+\fbox{Raffinement du maillage}
 Afin de voir l'effet du raffinement du maillage sur le conditionnement de la matrice $A$, nous avons joué sur le paramètre \texttt{clscale} de \texttt{ccore.py}.
 Plus celui-ci est petit, plus le maillage est fin.
-%TODO explain why it goes down as the mesh gets more coarse
+Le conditionnement de $A$ diminue de façon linéaire plus \texttt{clscale} augmente, mais augmente soudainement pour la valeur de $34$.
+Cela est dû à l'algorithme de maillage.
+On écrit donc en général (en notant la valeur de \texttt{clscale} par $c$)
+\[
+\kappa(A) \sim \left\{ \begin{array}{ll}
+\zeta + \eta c & \textnormal{si $c < 34$}\,,\\
+\theta + \iota c & \textnormal{sinon.}
+\end{array}\right.
+\]
+
+Le spectre des valeurs singulières a toujours la même forme,
+mais est ``compressé'' lorsque le paramètre \texttt{clscale} augmente.
 
 \section{Approximation de rang faible}
 Nous cherchons à approximer la matrice $A \in \mathbb{R}^{m \times n}$ de rang $r$ par une somme de $\nu$ matrices de rang $1$ comme suit:
-\[
+\(
 A_{\nu} = \sum_{j=1}^{\nu} \sigma_{j} u_{j} v^*_{j}\,. 
-\] 
+\) 
 Par le Théorème~5.8 pp. 35--36 dans le livre de référence, il est possible de démontrer que cette somme partielle capture l'énergie maximale possible de $A$, et ce autant pour la $2$-norme matricielle (avec laquelle nous travaillons) que pour la norme de Frobenius.
 On définit alors l'erreur $e_{\nu}$ comme
-\[
+\(
 e_{\nu} = \frac{\norm{A - A_{\nu}}_2}{\norm{A}_2}\,.
-\]
-Il était demandé de répondre à trois questions concernant ces approximations.
-\subsection{Influence du premier terme}
+\)
+
+\fbox{Influence du premier terme}
 %TODO explain first term proportion
-\subsection{Nombre de termes requis pour obtenir une précision donnée}
+asdf
+
+\fbox{Nombre de termes requis pour obtenir une précision donnée}
 %TODO explain terms in function of system size
-\subsection{Influence du conditionnement}
+asdf
+
+\fbox{Influence du conditionnement}
 %TODO explain terms in function of condition number
+asdf
+
 \appendix
 \section*{Appendices}
 \section{Figures}
@@ -73,55 +113,74 @@ Il était demandé de répondre à trois questions concernant ces approximations
 %TODO change figure names
 \begin{figure}[H]
 	\centering
-	\begin{subfigure}{0.4\textwidth}
+	\begin{subfigure}{0.24\textwidth}
 		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_qr.png}
-		\caption{\texttt{QRsolve}, échelle logarithmique.}
-		\label{fig:llqr}
-	\end{subfigure}%
-	\begin{subfigure}{0.4\textwidth}
+		\includegraphics[width=\linewidth]{gapcond.png}
+		\caption{Influence de la taille de l'entrefer sur le  conditionnement de $A$.}
+		\label{fig:gapcond}
+	\end{subfigure}\hfill
+	\begin{subfigure}{0.24\textwidth}
 		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_np.png}
-		\caption{\texttt{NumPy}, échelle logarithmique.}
-		\label{fig:llnp}
+		\includegraphics[width=\linewidth]{gapspec.png}
+		\caption{Influence de la taille de l'entrefer sur le spectre des valeurs singulières de $A$.}
+		\label{fig:gapspec}
+	\end{subfigure}\hfill
+	\begin{subfigure}{0.24\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{mucond.png}
+		\caption{Influence de la perméabilité relative $\mu_{\textnormal{r}}$ sur le conditionnement de $A$.}
+		\label{fig:mucond}
+	\end{subfigure}\hfill
+	\begin{subfigure}{0.24\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{muspec.png}
+		\caption{Influence de la perméabilité relative $\mu_{\textnormal{r}}$ sur le spectre des valeurs singulières de $A$.}
+		\label{fig:muspec}
 	\end{subfigure}
-	\begin{subfigure}{0.4\textwidth}
+	\begin{subfigure}{0.24\textwidth}
 		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_qr.png}
-		\caption{\texttt{QRsolve}, échelle logarithmique.}
-		\label{fig:llqr}
-	\end{subfigure}%
-	\begin{subfigure}{0.4\textwidth}
+		\includegraphics[width=\linewidth]{jcond.png}
+		\caption{Influence de la densité de courant sur le conditionnement de la matrice $A$.}
+		\label{fig:jcond}
+	\end{subfigure}\hfill
+	\begin{subfigure}{0.24\textwidth}
 		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_np.png}
-		\caption{\texttt{NumPy}, échelle logarithmique.}
-		\label{fig:llnp}
+		\includegraphics[width=\linewidth]{jspec.png}
+		\caption{Influence de la densité de courant sur le spectre des valeurs singulières de $A$.}
+		\label{fig:jspec}
+	\end{subfigure}\hfill
+	\begin{subfigure}{0.24\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{clscalecond.png}
+		\caption{Influence du raffinement du maillage sur le conditionnement de $A$.}
+		\label{fig:lclscalecond}
+	\end{subfigure}\hfill
+	\begin{subfigure}{0.24\textwidth}
+		\centering
+		\includegraphics[width=\linewidth]{clscalespec.png}
+		\caption{Influence du raffinement du maillage sur le spectre des valeurs singulières de $A$.}
+		\label{fig:clscalespec}
 	\end{subfigure}
-	\begin{subfigure}{0.4\textwidth}
+	\caption{Différents graphes pertinents pour l'analyse de la section~\ref{param}.
+	Les coefficients de correlation sont toujours calculés par rapport au \emph{curve fit} proposé.}
+	\label{fig:figsec1}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}{0.33\textwidth}
 		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_qr.png}
-		\caption{\texttt{QRsolve}, échelle logarithmique.}
-		\label{fig:llqr}
-	\end{subfigure}%
-	\begin{subfigure}{0.4\textwidth}
+		\includegraphics[width=\linewidth]{mesh1.png}
+		\caption{Avec \texttt{lc3=D/2.*R}.}
+		\label{fig:mesh1}
+	\end{subfigure}\hspace{3cm}
+	\begin{subfigure}{0.33\textwidth}
 		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_np.png}
-		\caption{\texttt{NumPy}, échelle logarithmique.}
-		\label{fig:llnp}
+		\includegraphics[width=\linewidth]{mesh2.png}
+		\caption{Avec \texttt{lc3=E/2.*R}.}
+		\label{fig:mesh2}
 	\end{subfigure}
-	\begin{subfigure}{0.4\textwidth}
-		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_qr.png}
-		\caption{\texttt{QRsolve}, échelle logarithmique.}
-		\label{fig:llqr}
-	\end{subfigure}%
-	\begin{subfigure}{0.4\textwidth}
-		\centering
-		%\includegraphics[width=\linewidth]{hw1_loglog_np.png}
-		\caption{\texttt{NumPy}, échelle logarithmique.}
-		\label{fig:llnp}
-	\end{subfigure}
-	\caption{Différents graphes pertinents pour l'analyse en page 1.}
-	\label{fig:manmade}
+	\caption{Comparaison des maillages en changeant une ligne de code.}
+	\label{fig:mesh}
 \end{figure}
 \end{document}

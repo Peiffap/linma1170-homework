@@ -17,33 +17,28 @@ SolverType = 'scipy'
 import scipy.sparse
 import scipy.sparse.linalg
 import numpy as np
-import matplotlib.pyplot as plt
 
 def mysolve(A, b):
     if SolverType == 'scipy':
         i, sol = low_rank_approx(A,b)
         return True, scipy.sparse.linalg.spsolve(A, b), i
-    elif SolverType == 'QR':
-        return True, QRsolve(A, b)
     else:
         return False, 0
 
 def low_rank_approx(A,b):
-     U,s,v = np.linalg.svd(A)
-     #print(s[len(s)-1])
-     #print(s[len(s)-2])
+     U, s, Vh = np.linalg.svd(A)
      sol = 0
      for i in range(len(s)):
-         sol += np.dot(b,(np.outer(U.T[i], v[i])/s[i]))
+         sol += np.dot(b,(np.outer(U.T[i], Vh[i])/s[i]))
      pourcentage = 0
      i =1
      sol2=0
      while i < len(sol) and pourcentage < 0.9 :
-         sol2+=np.dot(b,(np.outer(U.T[len(sol)-i], v[len(sol)-i])/s[len(sol)-i]))
+         sol2+=np.dot(b,(np.outer(U.T[len(sol)-i], Vh[len(sol)-i])/s[len(sol)-i]))
          pourcentage = (np.linalg.norm(sol) - np.linalg.norm(sol-sol2))/np.linalg.norm(sol)
-         first = np.dot(b,(np.outer(U.T[len(sol)-1], v[len(sol)-1])/s[len(sol)-1]))
+         first = np.dot(b,(np.outer(U.T[len(sol)-1], Vh[len(sol)-1])/s[len(sol)-1]))
          first1 =  (np.linalg.norm(sol) - np.linalg.norm(sol-first))/np.linalg.norm(sol)
-         prc = np.linalg.norm(np.dot(b,(np.outer(U.T[len(sol)-1], v[len(sol)-1]/s[len(sol)-1]))))/np.linalg.norm(sol)
+         prc = np.linalg.norm(np.dot(b,(np.outer(U.T[len(sol)-1], Vh[len(sol)-1]/s[len(sol)-1]))))/np.linalg.norm(sol)
          
          i+=1
      #print(first1)
