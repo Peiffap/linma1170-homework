@@ -319,6 +319,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
                         sLU[index_loop_jk] = a
                         index_loop_jk += 1
                         index_loop_kk += 1
+    
     if remove_zeros:
         zeros = np.where(sLU == 0.0)[0]
         if len(zeros) > 0:                  
@@ -407,25 +408,25 @@ def LUcsrsolve(sA, iA, jA, b):
 
     # Forward substitution to solve Ly = b for y
     y[0] = b[0]
+    indices = np.zeros(n, dtype = int)
+    for i in range(n):
+        indices[i] = get_index(i, i)
     for i in range(1, n):
-        s = 0
-        for k in range(i):
-            s += sA[get_index(i,k)] * y[k]
-        y[i] = b[i] - s
+        start_index = get_index(i, 0)
+        y[i] = b[i] - np.dot(sA[start_index:indices[i]], y[:i])
     
     # Back substitution to solve Ux = y for x
-    x[n-1] = y[n-1] / sA[get_index(n-1, n-1)]
+    x[n-1] = y[n-1] / sA[indices[n-1]]
     for i in range(n-1, -1, -1):
-        s = 0
-        for k in range(i+1, n):
-            s += sA[get_index(i, k)] * x[k]
-            
-        x[i] = (y[i] - s)/sA[get_index(i, i)]
-    
+        end_index = get_index(i, n)
+        x[i] = (y[i] - np.dot(sA[indices[i+1]:end_index], x[i+1:]))/sA[indices[i]]
     return x.T
 
 
 def RCMK(iA, jA):
+    """
+    
+    """
     n = len(iA)-1
     lowest = float("inf")
     deg = np.zeros((n,1))
