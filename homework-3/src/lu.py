@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import timeit
 
 
-SolverType = 'LU'
+SolverType = 'scipy'
 
 
 def mysolve(A, b):
@@ -38,24 +38,25 @@ def mysolve(A, b):
     
     According to which solver is selected by the global variable "SolverType",
     this solver uses either:
-        - scipy.sparse.linalg's built-in sparse solver;
-        - a solver based on QR factorization;
-        - a solver based on LU factorization;
-        - a solver based on the GMRES algorithm.
+        
+        * scipy.sparse.linalg's built-in sparse solver;
+        * a solver based on QR factorization;
+        * a solver based on LU factorization;
+        * a solver based on the GMRES algorithm.
     
     Parameters
     ----------
-        A : ndarray
-            Square (`n x n`) coefficient matrix for the system ``Ax = b``.
-        b : ndarray
-            `n`-element vector for the system.
+    A : ndarray
+        Square (`n x n`) coefficient matrix for the system ``Ax = b``.
+    b : ndarray
+        `n`-element vector for the system.
             
     Returns
     -------
-        success : boolean
-            Indicates whether the solver was succesful in its computation.
-        x : ndarray
-            Exact solution of the matrix equation.
+    success : boolean
+        Indicates whether the solver was succesful in its computation.
+    x : ndarray
+        Exact solution of the matrix equation.
     """
     if SolverType == 'scipy':
         return True, scipy.sparse.linalg.spsolve(A, b)
@@ -87,18 +88,17 @@ def LUfactorize(A):
     
     Parameters
     ----------
-        A : ndarray
-            Square matrix to decompose in-place.
+    A : ndarray
+        Square matrix to decompose in-place.
             
     Returns
     -------
-        None
+    None
     """
     lA = len(A)
-    for k in range(0, lA-1):
-            A[k+1:, k] = A[k+1:, k]/A[k, k]
-            A[k+1:, k+1:] -= np.outer(A[k+1:, k],A[k, k+1:])
-
+    for k in range (0, lA-1):
+        A[k+1:, k] = A[k+1:, k] / A[k, k]
+        A[k+1:, k+1:] -= np.outer(A[k+1:, k],A[k, k+1:])
 
 def LUsolve(A, b):
     """
@@ -111,33 +111,32 @@ def LUsolve(A, b):
     
     Parameters
     ----------
-        A : ndarray
-            Coefficient matrix for the system.
-        b : ndarray
-            Vector for the system.
+    A : ndarray
+        Coefficient matrix for the system.
+    b : ndarray
+        Vector for the system.
             
     Returns
     -------
-        x : ndarray
-            Exact solution to the system.
+    x : ndarray
+        Exact solution to the system.
     """
     
     # Factorize the matrix in-place
     LUfactorize(A)
     
     lA = len(A)
-    x = np.zeros(lA)
-    y = np.zeros(lA)
+    x = np.zeros(lA, dtype = complex)
+    y = np.zeros(lA, dtype = complex)
     y[0] = b[0]
-    
     # Forward substitution to solve Ly = b for y
     for i in range(1, lA):
-        y[i] = b[i] - np.dot(A[i,0:i], y[0:i])
+        y[i] = b[i] - np.dot(A[i,:i], y[:i])
         
     # Back substitution to solve Ux = y for x
     for j in range(lA):
         k = lA - (j+1)
-        x[k] = (y[k] - np.dot(x[:], A.T[:, k])) / A[k, k]
+        x[k] = (y[k] - np.dot(x, A.T[:, k])) / A[k, k]
         
     return x.T
 
@@ -149,24 +148,24 @@ def CSRformat(A):
     """
     Compresses a square matrix `A`.
     
-    Compression follows the CSR (compressed storage by rows) format,
+    Compression follows the CSR (compressed sparse row) format,
     where a matrix is represented by three vectors.
     
     Parameters
     ----------
-        A : ndarray
-            Square matrix to compress.
+    A : ndarray
+        Square matrix to compress.
             
     Returns
     -------
-        sA : ndarray
-            Vector containing the nonzero entries of A.
-        iA : ndarray
-            Vector containing the indices of the first nonzero element
-            on each row of A, as well as the expected number
-            on the "(n+1)-th row" of A.
-        jA : ndarray
-            Vector containing the columns of the nonzero entries of A.
+    sA : ndarray
+        Vector containing the nonzero entries of A.
+    iA : ndarray
+        Vector containing the indices of the first nonzero element
+        on each row of A, as well as the expected number
+        on the "(n+1)-th row" of A.
+    jA : ndarray
+        Vector containing the columns of the nonzero entries of A.
     """
     n, m = A.shape
     nnz = np.count_nonzero(A)  # Number of nonzero elements in A
@@ -198,31 +197,31 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
     
     Parameters
     ----------
-        sA : ndarray
-            Vector containing the nonzero entries of `A`.
-        iA : ndarray
-            Vector containing the indices of the first nonzero element
-            on each row of A, as well as the expected number
-            on the "(`n+1`)-th row" of `A`.
-        jA : ndarray
-            Vector containing the columns of the nonzero entries of `A`.
-        remove_zeros : boolean, optional
-            * True  : removes all zeros left on the skyline after fill-in (default).
-            * False : the zeros are left in the sparse vectors, which is easier to manipulate in some cases.
-            
+    sA : ndarray
+        Vector containing the nonzero entries of `A`.
+    iA : ndarray
+        Vector containing the indices of the first nonzero element
+        on each row of A, as well as the expected number
+        on the "(`n+1`)-th row" of `A`.
+    jA : ndarray
+        Vector containing the columns of the nonzero entries of `A`.
+    remove_zeros : boolean, optional
+        * True  : removes all zeros left on the skyline after fill-in (default).
+        * False : the zeros are left in the sparse vectors, which is easier to manipulate in some cases.
+        
     Returns
     -------
-        sLU : ndarray
-            Vector containing the nonzero entries
-            of the in-place LU decomposition of `A`.
-        iA : ndarray
-            Vector containing the indices of the first nonzero element
-            on each row of the in-place LU decomposition of `A`,
-            as well as the expected number
-            on the "(`n+1`)-th row" of `A`.
-        jLU : ndarray
-            Vector containing the columns of the nonzero entries
-            of the in-place LU factorization of `A`.
+    sLU : ndarray
+        Vector containing the nonzero entries
+        of the in-place LU decomposition of `A`.
+    iA : ndarray
+        Vector containing the indices of the first nonzero element
+        on each row of the in-place LU decomposition of `A`,
+        as well as the expected number
+        on the "(`n+1`)-th row" of `A`.
+    jLU : ndarray
+        Vector containing the columns of the nonzero entries
+        of the in-place LU factorization of `A`.
     """
     
     n = len(iA) - 1
@@ -247,26 +246,26 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
         
         Parameters
         ----------
-            i : int
-                Index of the row of the element.
-            j : int
-                Index of the column of the element.
+        i : int
+            Index of the row of the element.
+        j : int
+            Index of the column of the element.
                 
         Returns
         -------
-            ind : int
-                Index of the element in sLU.
+        ind : int
+            Index of the element in sLU.
         """
         iright = i + right
         if j >= iright or j <= i - left:
             return 0
         
         index = i*bandwidth + (j-i)
-        gauche2 = left-2
-        ng = gauche2*(gauche2+1)/2
-        gauche2i = gauche2 - i
-        if gauche2i > 0:
-            ng -= (gauche2i)*(gauche2i+1)/2
+        left2 = left-2
+        ng = left2*(left2+1)/2
+        left2i = left2 - i
+        if left2i > 0:
+            ng -= (left2i)*(left2i+1)/2
             
         nd = 0
         if iright > n:
@@ -303,6 +302,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
             curr_index += n
     iA[-1] = size
     
+    # LU decomposition
     for k in range(n):
         index_kk = get_index(k, k)
         akk = sLU[index_kk]
@@ -320,6 +320,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
                         index_loop_jk += 1
                         index_loop_kk += 1
     
+    # Remove zeros from the precomputed band
     if remove_zeros:
         zeros = np.where(sLU == 0.0)[0]
         if len(zeros) > 0:                  
@@ -347,20 +348,20 @@ def LUcsrsolve(sA, iA, jA, b):
     
     Parameters
     ----------
-        sA : ndarray
-            Vector containing the nonzero entries of A.
-        iA : ndarray
-            Vector containing the indices of the first nonzero element
-            on each row of A, as well as the expected number
-            on the "(n+1)-th row" of A.
-        jA : ndarray
-            Vector containing the columns of the nonzero entries of A.
-        b : ndarray
-            Vector of the linear system.
+    sA : ndarray
+        Vector containing the nonzero entries of A.
+    iA : ndarray
+        Vector containing the indices of the first nonzero element
+        on each row of A, as well as the expected number
+        on the "(n+1)-th row" of A.
+    jA : ndarray
+        Vector containing the columns of the nonzero entries of A.
+    b : ndarray
+        Vector of the linear system.
     Returns
     -------
-        x : ndarray
-            Solution to the matrix equation.
+    x : ndarray
+        Solution to the matrix equation.
     """
     n = len(iA) - 1
     sA, iA, jA = LUcsr(sA, iA, jA, False)  # Sparse decomposition, while keeping zero elements on the skyline
@@ -369,93 +370,173 @@ def LUcsrsolve(sA, iA, jA, b):
     left = iA[-1] - iA[-2]
     bandwidth = left + right - 1
     
-    def get_index(i, j):
+    def get_element(i, j):
         """
-        Returns the index in sA of element `(i, j)` in `A`.
+        Returns the value element `(i, j)` in `A` by looking in sA.
         
         Parameters
         ----------
-            i : int
-                Index of the row of the element.
-            j : int
-                Index of the column of the element.
+        i : int
+            Index of the row of the element.
+        j : int
+            Index of the column of the element.
                 
         Returns
         -------
-            ind : int
-                Index of the element in sA.
+        elem : int
+            Element in sA.
         """
         iright = i + right
         if j >= iright or j <= i - left:
             return 0
         
         index = i*bandwidth + (j-i)
-        gauche2 = left-2
-        ng = gauche2*(gauche2+1)/2
-        gauche2i = gauche2 - i
-        if gauche2i > 0:
-            ng -= (gauche2i)*(gauche2i+1)/2
+        left2 = left-2
+        ng = left2*(left2+1)/2
+        left2i = left2 - i
+        if left2i > 0:
+            ng -= (left2i)*(left2i+1)/2
             
         nd = 0
         if iright > n:
             delta = iright - n
             nd = delta*(delta-1)/2
             
-        return int(index - ng - nd)
+        return sA[int(index - ng - nd)]
     
-    x = np.zeros(n)
-    y = np.zeros(n)
+    x = np.zeros(n, dtype = complex)
+    y = np.zeros(n, dtype = complex)
 
     # Forward substitution to solve Ly = b for y
     y[0] = b[0]
-    indices = np.zeros(n, dtype = int)
-    for i in range(n):
-        indices[i] = get_index(i, i)
     for i in range(1, n):
-        start_index = get_index(i, 0)
-        y[i] = b[i] - np.dot(sA[start_index:indices[i]], y[:i])
-    
+        s = 0
+        for k in range(i):
+            s += get_element(i, k) * y[k]
+        y[i] = b[i] - s
+        
     # Back substitution to solve Ux = y for x
-    x[n-1] = y[n-1] / sA[indices[n-1]]
-    for i in range(n-1, -1, -1):
-        end_index = get_index(i, n)
-        x[i] = (y[i] - np.dot(sA[indices[i+1]:end_index], x[i+1:]))/sA[indices[i]]
-    return x.T
+    x[-1] = y[-1] / get_element(n-1, n-1)
+    for i in range(n-2, -1, -1):
+        s = 0
+        for k in range(i+1, n):
+            s += get_element(i, k) * x[k]
+        x[i] = (y[i] - s) / get_element(i, i)
+    return x
 
 
 def RCMK(iA, jA):
     """
+    Find a permutation vector with the Reverse Cuthill-McKee algorithm.
     
+    The permutation vector is good when dealing with long, thin problems,
+    but has very little theoretical guarantees
+    and one should thus be careful when using it.
+    
+    Parameters
+    ----------
+    iA : ndarray
+        Vector containing the indices of the first nonzero element
+        on each row of A, as well as the expected number
+        on the "(n+1)-th row" of A.
+    jA : ndarray
+        Vector containing the columns of the nonzero entries of A.
+    
+    Returns
+    -------
+    r : ndarray
+        Permutation vector using the Reverse Cuthill-McKee algorithm.
     """
-    n = len(iA)-1
-    lowest = float("inf")
-    deg = np.zeros((n,1))
-    index = -1
-    for i in range(n):
-        deg[i]= iA[i+1]-iA[i]
-        if lowest > deg[i]:
-            lowest=deg[i]
-            index = i
-    Qu = deque([index])
+    n = len(iA) - 1
+    Qu = deque()
     R = deque()
+    deg = np.zeros(n)
+    for i in range(n):
+        deg[i] = iA[i+1] - iA[i]
+        
+    def lowest_index():
+        """
+        Find the lowest degree node in a graph that is not yet in the queue.
+        
+        This function is needed for when certain nodes have degree one
+        (and thus do not add any other nodes to the queue when popped).
+        
+        Parameters
+        ----------
+        None
+            
+        Returns
+        -------
+        index : int
+            Index of the lowest degree node that is not yet in the queue.
+        """
+        index = -1
+        lowest = n + 1
+        for i in range(n):
+            if i not in Qu and i not in R and lowest > deg[i]:
+                lowest = deg[i]
+                index = i
+        return index
+    
+    Qu.append(lowest_index())
     adj = []
-    while Qu:
-        E = Qu.popleft()
+    length = 1;
+    # If either not all nodes have been permuted
+    # or if some nodes haven't been popped yet
+    while length < n or len(Qu) > 0:
+        # No new nodes need to be added, flush the queue
+        if (length == n):
+            while Qu:
+                R.append(Qu.popleft())
+            r = np.zeros(n, dtype = int)
+            for i in range(n):
+                r[i] = R.pop()
+            return r
+        # Not all nodes have been popped yet, however the queue is empty
+        # Need to find the next node to pop
+        if len(Qu) == 0:
+            E = lowest_index()
+            length += 1
+        else :
+            E = Qu.popleft()
         R.append(E)
+        # Iterate over direct neighbours, add them by order of lowest degree
+        # if they aren't yet in the queue
         for j in range(iA[E],iA[E+1]):
             if jA[j] not in R and jA[j] not in Qu:
-                adj +=[(jA[j],deg[jA[j]])]
-        sort = sorted(adj,key=lambda tup: tup[1],reverse=False)
+                adj += [(jA[j], deg[jA[j]])]
+        sort = sorted(adj, key=lambda tup: tup[1], reverse=False)
         for x in sort:
             Qu.append(x[0])
-        adj=[]
-    r = np.zeros(n,dtype=int)
+        length += len(sort)
+        adj = []
+    # Turn queue into an RCMK-compliant permutation vector
+    # by popping in reverse order
+    r = np.zeros(n, dtype = int)
     for i in range(n):
-        r[i]=R.pop()
+        r[i] = R.pop()
     return r
 
+
 def ccore(clscale):
-    # mesh refinement 1:fine 10:coarse 50:very coarse
+    """
+    Finite element model of a magnet.
+    
+    This model generates the matrices for the test cases.
+    
+    Parameters
+    ----------
+    clscale : int
+        Coarseness of the mesh.
+        
+    Returns
+    -------
+    A : ndarray
+        Matrix for the matrix equation ``Ax = b``.
+    b : ndarray
+        Vector for the matrix equation.
+    """
+    
     mur = 100.     # Relative magnetic permeability of region CORE 1:air 1000:steel
     gap = 0.001     # air gap lenght in meter
     
@@ -795,75 +876,245 @@ def ccore(clscale):
     return np.array(mat, dtype=np.float64), vec
 
 
-if __name__ == "__main__":
+def expFull(precision = 'report'):
+    """
+    Plot suite for homework 3 (dense part)
     
-#        A=np.array(A,dtype=np.float64)
-#        sA,iA,jA = CSRformat(A)
-#        r=RCMK(iA,jA)
-#        M = scipy.sparse.csr_matrix(A)
-#        N1=A[r,:]
-#        N=scipy.sparse.csr_matrix(N1[:,r])
-#        
-#        plt.spy(M)
-#        plt.show()
-#        plt.spy(N)
-#        plt.show()
-    timeLUsolve=[]
-    timeCSRsolve=[]
-    timeRCMKsolve=[]
-    size=[]
-    for i in range(20,30):
+    Various plots are created:
+        
+        * density of `A` as a function of system size.
+        * density of in-place LU factorization as a function of density of `A`.
+        * execution time of LUsolve as a function of system size.
+        
+    Parameters
+    ----------
+    precision : {'report', 'test'}, optional
+        Precision of the plots.
+    
+    Returns
+    -------
+    None
+    """
+    print("==========================================================")
+    print("                     DENSE MATRICES")
+    print("==========================================================")
+    if precision == 'report':
+        data = range(5, 50)
+    elif precision == 'test':
+        data = range(20, 30)
+    else:
+        print("Please give a valid precision specifier")
+    
+    # Preallocate result vectors
+    a_dens = np.zeros(len(data), dtype = np.float64)
+    lu_dens = np.zeros(len(data), dtype = np.float64)
+    size = np.zeros(len(data), dtype = int)
+    exec_time = np.zeros(len(data), dtype = np.float64)
+
+    index = 0
+    for i in data:
         A, b = ccore(i)
-        n=len(A)
-        size.append(n)
-#        plt.spy(scipy.sparse.csr_matrix(A))
-#        plt.show()
-        sA,iA,jA = CSRformat(A)
-        r = RCMK(iA,jA)
-        t2=timeit.default_timer()
-        CSRsolve(sA,iA,jA,b)
-        t3=timeit.default_timer()
-        timeCSRsolve.append(t3-t2)
+        size[index] = len(A)
+        a_dens[index] = np.count_nonzero(A)/len(A)**2
         
-        N1=A[r,:]
-        N = N1[:, r]
-        M=scipy.sparse.csr_matrix(N)
-#        plt.spy(M)
-#        plt.show()
-        sN,iN,jN = CSRformat(N)
-        t4=timeit.default_timer()
-        CSRsolve(sN, iN, jN, b[r])
-        t5=timeit.default_timer()
-        timeRCMKsolve.append(t5-t4)
+        t0 = timeit.default_timer()
+        LUsolve(A, b) # Factorization happens in-place, A is now filled in
+        t1 = timeit.default_timer()
+        exec_time[index] = t1 - t0
         
-        t0=timeit.default_timer()
-        LUsolve(A,b)
-        t1=timeit.default_timer()
-        timeLUsolve.append(t1-t0)
-
+        lu_dens[index] = np.count_nonzero(A)/len(A)**2
         
-        #print(np.allclose(x, scipy.sparse.linalg.spsolve(A, b)[r], rtol = 1e-5, atol = 1e-5))
-        print("========================================================")
-        print('Matrix size = %d\n' %n)
-        print('Time for LUsolve = %.5f s\n' %(t1-t0))
-        print('Time for LUcsrsolve = %.5f s\n' %(t3-t2))
-        print('Time for LUcsrsolve (with RCMK) = %.5f s' %(t5-t4))
-        print("========================================================\n\n")
+        index += 1
         
-    plt.plot(size,timeLUsolve, 'ro')
-    plt.plot(size,timeCSRsolve,'bo')
-    plt.plot(size,timeRCMKsolve,'go')
+    # Density of LU as a function of density before factorization
+    plt.plot(a_dens, lu_dens, 'go')
+    plt.xlabel(r"Density of the original matrix")
+    plt.ylabel(r"Density of the LU decomposition")
+    plt.title(r"Influence of original density"
+              "\n"
+              r"on density after decomposition")
+    plt.legend(['Data points'])
     plt.show()
-#    plt.xlabel('Taille de la matrice A')
-#    plt.ylabel("Temps d'exécution")
-#    plt.title("Temps d'exécution en fonction de la taille de la matrice A" )
-#    plt.show()
     
-#    plt.plot(np.log(size),np.log(timeCSR), 'ro')
-#    plt.plot(np.log(size),np.log(timeCSR_RCMK), 'bo')
-#    plt.plot(np.log(size),np.log(timeDense), 'go')
-#    plt.xlabel('Taille de la matrice A')
-#    plt.ylabel("Temps d'exécution")
-#    plt.title("Temps d'exécution en fonction de la taille de la matrice A" )
-#    plt.show()
+    # Density of LU as a function of system size
+    plt.plot(size, lu_dens, 'go')
+    plt.xlabel(r"Size of the system")
+    plt.ylabel(r"Density of the LU decomposition")
+    plt.title(r"Influence of system size"
+              "\n"
+              r"on density after decomposition")
+    plt.legend(['Data points'])
+    plt.show()
+    
+    sizelog = np.log10(size)
+    
+    # Linear regression
+    fit_LUsolve = np.polyfit(sizelog, np.log10(exec_time), 1)
+    fit_fn_LUsolve = np.poly1d(fit_LUsolve)
+    
+    ran = np.log10(range(min(size), max(size)))
+    
+    # Logarithmic plot of LUsolve execution time
+    plt.plot(sizelog, np.log10(exec_time), 'go', ran, fit_fn_LUsolve(ran), '--g')
+    plt.xlabel(r"Size of the system, $\log_{10} \,n$")
+    plt.ylabel(r"Execution time of LUsolve $[\log_{10} \,\mathrm{s}]$")
+    plt.title(r"Execution time of LUsolve on a logarithmic scale"
+              "\n"
+              r"as a function of $\log_{10} \,n$, the size of $A$")
+    plt.legend(['Data points', 'Linear fit'])
+    plt.show()
 
+    
+def expSparse(precision = 'report'):
+    """
+    Plot suite for homework 3 (sparse part)
+    
+    Various plots are created:
+        
+        * Execution time of CSRformat as a function of system size
+        * Influence of Reverse Cuthill-McKee ordering on the density of the in-place LU decomposition 
+        * Execution time of RCMK
+        * Execution time of LUcsrsolve for the original matrix and for the reordered matrix
+        * Spy plots of the coefficient matrix before and after fill-in, both with and without reordering
+        
+    Parameters
+    ----------
+    precision : {'report', 'test'}, optional
+        Precision of the plots.
+    
+    Returns
+    -------
+    None
+    """
+    print("==========================================================")
+    print("                    SPARSE MATRICES")
+    print("==========================================================")
+    if precision == 'report':
+        data = range(5, 50)
+    elif precision == 'test':
+        data = range(20, 30)
+    else:
+        print("Please give a valid precision specifier")
+    
+    # Preallocate result vectors
+    lu_dens = np.zeros(len(data), dtype = np.float64)
+    lu_rcmk_dens = np.zeros(len(data), dtype = np.float64)
+    size = np.zeros(len(data), dtype = int)
+    exec_time_format = np.zeros(len(data), dtype = np.float64)
+    exec_time_csr_solve = np.zeros(len(data), dtype = np.float64)
+    exec_time_rcmk_solve = np.zeros(len(data), dtype = np.float64)
+    exec_time_rcmk = np.zeros(len(data), dtype = np.float64)
+    
+    spy_index = 20
+    
+    index = 0
+    for i in data:
+        A, b = ccore(i)
+        size[index] = len(A)
+        
+        t0_format = timeit.default_timer()
+        sA, iA, jA = CSRformat(A)
+        if i == spy_index:
+            plt.spy(scipy.sparse.csr_matrix(A), precision=1, markersize=2)
+            plt.show()
+        t1_format = timeit.default_timer()
+        exec_time_format[index] = t1_format - t0_format
+        
+        t0_rcmk = timeit.default_timer()
+        r = RCMK(iA, jA)
+        t1_rcmk = timeit.default_timer()
+        exec_time_rcmk[index] = t1_rcmk - t0_rcmk
+        
+        a_rcmk = (A[:, r])[r, :]
+        if i == spy_index:
+            plt.spy(scipy.sparse.csr_matrix(a_rcmk), precision=1, markersize=2)
+            plt.show()
+        b_rcmk = b[r]
+        sA_rcmk, iA_rcmk, jA_rcmk = CSRformat(a_rcmk)
+        
+        t0_csr_solve = timeit.default_timer()
+        LUcsrsolve(sA, iA, jA, b)
+        t1_csr_solve = timeit.default_timer()
+        exec_time_csr_solve[index] = t1_csr_solve - t0_csr_solve
+        
+        t0_rcmk_solve = timeit.default_timer()
+        LUcsrsolve(sA_rcmk, iA_rcmk, jA_rcmk, b_rcmk)
+        t1_rcmk_solve = timeit.default_timer()
+        exec_time_rcmk_solve[index] = t1_rcmk_solve - t0_rcmk_solve
+        
+        LUfactorize(a_rcmk)
+        LUfactorize(A)
+        lu_rcmk_dens[index] = np.count_nonzero(a_rcmk)/size[index]**2
+        lu_dens[index] = np.count_nonzero(A)/size[index]**2
+        
+        index += 1
+    
+    sizelog = np.log10(size)
+    
+    # Linear regression
+    formatlog = np.log10(exec_time_format)
+    
+    fit_CSRformat = np.polyfit(sizelog, formatlog, 1)
+    fit_fn_CSRformat = np.poly1d(fit_CSRformat)
+    
+    ran = np.log10(range(min(size), max(size)))
+    
+    # Logarithmic plot of CSRformat execution time
+    plt.plot(sizelog, formatlog, 'bo', ran, fit_fn_CSRformat(ran), '--b')
+    plt.xlabel(r"Size of the system, $\log_{10} \,n$")
+    plt.ylabel(r"Execution time of CSRformat $[\log_{10} \,\mathrm{s}]$")
+    plt.title(r"Execution time of CSRformat on a logarithmic scale"
+              "\n"
+              r"as a function of $\log_{10} \,n$, the size of $A$")
+    plt.legend(['Data points', 'Linear fit'])
+    plt.show()
+    
+    # Density of in-place LU factorization after reordering
+    plt.loglog(size, lu_dens, 'bo', size, lu_rcmk_dens, 'ro')
+    plt.xlabel(r"Size of the system, $n$")
+    plt.ylabel(r"Density")
+    plt.title(r"Density of in-place LU decomposition"
+              "\n"
+              r"as a function of $n$, the size of $A$")
+    plt.legend(['Original matrix', 'Reordered matrix'])
+    plt.show()
+    
+    # Linear regression
+    rcmklog = np.log10(exec_time_rcmk)
+    
+    fit_RCMK = np.polyfit(sizelog, rcmklog, 1)
+    fit_fn_RCMK = np.poly1d(fit_RCMK)
+    
+    # Logarithmic plot of RCMK execution time
+    plt.plot(sizelog, rcmklog, 'bo', ran, fit_fn_RCMK(ran), '--b')
+    plt.xlabel(r"Size of the system, $\log_{10} \, n$")
+    plt.ylabel(r"Execution time of RCMK $[\log_{10} \, \mathrm{s}]$")
+    plt.title(r"Execution time of RCMK on a logarithmic scale"
+              "\n"
+              r"as a function of $\log_{10} \, n$, the size of $A$")
+    plt.legend(['Data points', 'Linear fit'])
+    plt.show()
+    
+    # Linear regression
+    csrsolvelog = np.log10(exec_time_csr_solve)
+    rcmksolvelog = np.log10(exec_time_rcmk_solve)
+    
+    fit_csr_solve = np.polyfit(sizelog, csrsolvelog, 1)
+    fit_fn_csr_solve = np.poly1d(fit_csr_solve)
+    fit_rcmk_solve = np.polyfit(sizelog, rcmksolvelog, 1)
+    fit_fn_rcmk_solve = np.poly1d(fit_rcmk_solve)
+    
+    # Logarithmic plot of LUcsr execution time
+    plt.plot(sizelog, csrsolvelog, 'bo', sizelog, rcmksolvelog, 'ro', ran, fit_fn_csr_solve(ran), '--b', ran, fit_fn_rcmk_solve(ran), '--r')
+    plt.xlabel(r"Size of the system, $\log_{10} \, n$")
+    plt.ylabel(r"Execution time of LUcsr $[\log_{10} \, \mathrm{s}]$")
+    plt.title(r"Execution time of LUcsr on a logarithmic scale"
+              "\n"
+              r"as a function of $\log_{10} \, n$, the size of $A$")
+    plt.legend(['Original matrix', 'Reordered matrix', 'Linear fit (original)', 'Linear fit (reordered)'])
+    plt.show()
+
+
+if __name__ == "__main__":
+    expFull(precision='report')
+    expSparse(precision='report')
