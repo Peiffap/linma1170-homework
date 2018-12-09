@@ -59,7 +59,7 @@ def mysolve(A, b):
         Exact solution of the matrix equation.
     """
     if SolverType == 'scipy':
-        return True, scipy.sparse.linalg.spsolve(A, b)
+        return True, scipy.linalg.solve(A, b)
     #elif SolverType == 'QR':
         # write here your code for the QR solver
     elif SolverType == 'LU':
@@ -561,7 +561,6 @@ def ccore(clscale):
     b : ndarray
         Vector for the matrix equation.
     """
-    
     mur = 100.     # Relative magnetic permeability of region CORE 1:air 1000:steel
     gap = 0.001     # air gap lenght in meter
     
@@ -930,6 +929,7 @@ def expFull(precision = 'report'):
         data = range(20, 30)
     else:
         print("Please give a valid precision specifier")
+        return
     
     # Preallocate result vectors
     a_dens = np.zeros(len(data), dtype = np.float64)
@@ -1029,6 +1029,7 @@ def expSparse(precision = 'report'):
         data = range(20, 30)
     else:
         print("Please give a valid precision specifier")
+        return
     
     # Preallocate result vectors
     lu_dens = np.zeros(len(data), dtype = np.float64)
@@ -1048,14 +1049,11 @@ def expSparse(precision = 'report'):
     for i in data:
         A, b = ccore(i)
         size[index] = len(A)
-        
-        t0_format = timeit.default_timer()
         sA, iA, jA = CSRformat(A)
+        
         if i == spy_index:
             plt.spy(scipy.sparse.csr_matrix(A), precision=1, markersize=2)
             plt.show()
-        t1_format = timeit.default_timer()
-        exec_time_format[index] = t1_format - t0_format
         
         t0_rcmk = timeit.default_timer()
         r = RCMK(iA, jA)
@@ -1100,23 +1098,7 @@ def expSparse(precision = 'report'):
     
     sizelog = np.log10(size)
     
-    # Linear regression
-    formatlog = np.log10(exec_time_format)
-    
-    fit_CSRformat = np.polyfit(sizelog, formatlog, 1)
-    fit_fn_CSRformat = np.poly1d(fit_CSRformat)
-    
     ran = np.log10(range(min(size), max(size)))
-    
-    # Logarithmic plot of CSRformat execution time
-    plt.plot(sizelog, formatlog, 'bo', ran, fit_fn_CSRformat(ran), '--b')
-    plt.xlabel(r"Size of the system, $\log_{10} \,n$")
-    plt.ylabel(r"Execution time of CSRformat $[\log_{10} \,\mathrm{s}]$")
-    plt.title(r"Execution time of CSRformat on a logarithmic scale"
-              "\n"
-              r"as a function of $\log_{10} \,n$, the size of $A$")
-    plt.legend(['Data points', 'Linear fit'])
-    plt.show()
     
     # Bandwidth as a function of system size
     plt.plot(size, bandwidth, 'bo', size, bandwidth_rcmk, 'ro')
@@ -1175,43 +1157,41 @@ def expSparse(precision = 'report'):
               r"as a function of $\log_{10} \, n$, the size of $A$")
     plt.legend(['Original matrix, CSR', 'Reordered matrix, CSR', 'Original matrix, full', 'Linear fit (original, CSR)', 'Linear fit (reordered, CSR)', 'Linear fit (original, full)'])
     plt.show()
+    
+    size = range(1001, 10002, 500)
+    exec_time_format = np.zeros(len(size))
+    
+    index = 0
+    for i in size:
+        A = np.random.rand(i, i)
+        
+        t0 = timeit.default_timer()
+        sA, iA, jA = CSRformat(A)
+        t1 = timeit.default_timer()
+        exec_time_format[index] = t1-t0
+        index += 1
+        
+    sizelog = np.log10(size)
+    
+    # Linear regression
+    formatlog = np.log10(exec_time_format)
+    
+    fit_CSRformat = np.polyfit(sizelog, formatlog, 1)
+    fit_fn_CSRformat = np.poly1d(fit_CSRformat)
+    
+    ran = np.log10(range(min(size), max(size)))
+    
+    # Logarithmic plot of CSRformat execution time
+    plt.plot(sizelog, formatlog, 'bo', ran, fit_fn_CSRformat(ran), '--b')
+    plt.xlabel(r"Size of the system, $\log_{10} \,n$")
+    plt.ylabel(r"Execution time of CSRformat $[\log_{10} \,\mathrm{s}]$")
+    plt.title(r"Execution time of CSRformat on a logarithmic scale"
+              "\n"
+              r"as a function of $\log_{10} \,n$, the size of $A$")
+    plt.legend(['Data points', 'Linear fit'])
+    plt.show()
 
 
 if __name__ == "__main__":
-    #expFull(precision='report')
-    #expSparse(precision='report')
-    ran = range(24, 33)
-    bv = np.zeros(len(ran), dtype = np.float64)
-    t_rcmk = np.zeros(len(ran), dtype = np.float64)
-    t = np.zeros(len(ran), dtype = np.float64)
-    n = np.zeros(len(ran), dtype = np.float64)
-    for i in ran:
-        j = i-ran[0]
-        A, b = ccore(i)
-        sA, iA, jA = CSRformat(A)
-        n[j] = len(A)
-        
-        t0 = timeit.default_timer()
-        r = RCMK(iA, jA)
-        t1 = timeit.default_timer()
-        t_rcmk[j] = t1-t0
-        
-        N = (A[r, :])[:, r]
-        sN, iN, jN = CSRformat(N)
-        b_rcmk = b[r]
-        
-        l, r, bw = compute_bandwidth(iN, jN)
-        bv[j] = max(l, r) - 1
-        
-        t2 = timeit.default_timer()
-        r = LUcsrsolve(sN, iN, jN, b_rcmk)
-        t3 = timeit.default_timer()
-        t[j] = t3-t2
-        
-    rat1 = n[-1] * bv[-1] * np.log(bv[-1])
-    rat2 = n[-1] * bv[-1]**2
-    
-    for i in ran:
-        j = i-ran[0]
-        print("%.3f & %.3f & %.3f (expected %.3f) & %.3f (expected %.3f)" %(n[j]/float(n[-1]), bv[j]/float(bv[-1]), t_rcmk[j]/float(t_rcmk[-1]), n[j]*bv[j]*np.log(bv[j])/rat1, t[j]/float(t[-1]), n[j]*bv[j]*bv[j]/rat2))
-        
+    expFull(precision='test')
+    expSparse(precision='test')
