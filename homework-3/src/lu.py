@@ -189,6 +189,45 @@ def CSRformat(A):
     return sA, iA, jA
 
 
+def compute_bandwidth(iA, jA):
+    """
+    Compute the bandwidth of a matrix in CSR format.
+    
+    Parameters
+    ----------
+    iA : ndarray
+        Vector containing the indices of the first nonzero element
+        on each row of A, as well as the expected number
+        on the "(`n+1`)-th row" of `A`.
+    jA : ndarray
+        Vector containing the columns of the nonzero entries of `A`.
+        
+    Returns
+    -------
+    left : int
+        Lower bandwidth of `A`.
+    right : int
+        Upper bandwidth of `A`.
+    bandwidth : int
+        Bandwidth of `A`.
+    """
+    n = len(iA) - 1
+    right = 1
+    left = 1
+    
+    # Find the upper and lower bandwidth by checking each column
+    for i in range(n):
+        curr_right = jA[iA[i+1] - 1] - i + 1
+        if curr_right > right:
+            right = curr_right
+            
+        curr_left = i - jA[iA[i]] + 1
+        if curr_left > left:
+            left = curr_left
+        
+    return left, right, left + right - 1
+
+
 def LUcsr(sA, iA, jA, remove_zeros=True):
     """
     Apply LU decomposition to a sparse matrix.
@@ -206,7 +245,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
     jA : ndarray
         Vector containing the columns of the nonzero entries of `A`.
     remove_zeros : boolean, optional
-        * True  : removes all zeros left on the skyline after fill-in (default).
+        * True  : removes all zeros left on the band after fill-in (default).
         * False : the zeros are left in the sparse vectors, which is easier to manipulate in some cases.
         
     Returns
@@ -214,7 +253,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
     sLU : ndarray
         Vector containing the nonzero entries
         of the in-place LU decomposition of `A`.
-    iA : ndarray
+    iLU : ndarray
         Vector containing the indices of the first nonzero element
         on each row of the in-place LU decomposition of `A`,
         as well as the expected number
@@ -225,20 +264,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
     """
     
     n = len(iA) - 1
-    right = 1
-    left = 1
-    
-    # Find the skyline on the left and on the right by checking each column
-    for i in range(n):
-        curr_right = jA[iA[i+1] - 1] - i + 1
-        if curr_right > right:
-            right = curr_right
-            
-        curr_left = i - jA[iA[i]] + 1
-        if curr_left > left:
-            left = curr_left
-        
-    bandwidth = left + right - 1
+    left, right, bandwidth = compute_bandwidth(iA, jA)
     
     def get_index(i, j):
         """
@@ -278,6 +304,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
     nright = n - right
     size = int(n*n - (nleft*(nleft + 1) + (nright*(nright + 1)))/2)
     sLU = np.zeros(size, dtype = complex)
+    iLU = np.zeros(len(iA), dtype = int)
     jLU = np.zeros(size)
     curr_index = 0
     
@@ -286,7 +313,7 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
         for j in range(iA[i], iA[i+1]):
             ind = get_index(i, jA[j])
             sLU[ind] = sA[j]
-        iA[i] = curr_index
+        iLU[i] = curr_index
         if i >= left and iright <= n:
             jLU[curr_index:curr_index + bandwidth] = range(i-left+1, iright)
             curr_index += bandwidth
@@ -300,25 +327,23 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
         else:
             jLU[curr_index:curr_index + n] = range(n)
             curr_index += n
-    iA[-1] = size
+    iLU[-1] = size
     
     # LU decomposition
     for k in range(n):
         index_kk = get_index(k, k)
         akk = sLU[index_kk]
-        for j in range(k+1, k + left):
-            if j < n:
-                index_ljk = get_index(j, k)
-                ljk = sLU[index_ljk] / akk
-                sLU[index_ljk] = ljk
-                index_loop_jk = index_ljk + 1
-                index_loop_kk = index_kk + 1
-                for m in range(k+1, k + right):
-                    if m < n:
-                        a = sLU[index_loop_jk] - ljk*sLU[index_loop_kk]
-                        sLU[index_loop_jk] = a
-                        index_loop_jk += 1
-                        index_loop_kk += 1
+        for j in range(k+1, min(k + left, n)):
+            index_ljk = get_index(j, k)
+            ljk = sLU[index_ljk] / akk
+            sLU[index_ljk] = ljk
+            index_loop_jk = index_ljk + 1
+            index_loop_kk = index_kk + 1
+            for m in range(k+1, min(k + right, n)):
+                a = sLU[index_loop_jk] - ljk*sLU[index_loop_kk]
+                sLU[index_loop_jk] = a
+                index_loop_jk += 1
+                index_loop_kk += 1
     
     # Remove zeros from the precomputed band
     if remove_zeros:
@@ -330,20 +355,20 @@ def LUcsr(sA, iA, jA, remove_zeros=True):
                 if sLU[i] != 0:
                     count+=1
                 if jLU[i] > jLU[i+1]:
-                    iA[line] = count
+                    iLU[line] = count
                     line += 1
-            iA[-1] = count+1
+            iLU[-1] = count+1
             sLU = np.delete(sLU, zeros)
             jLU = np.delete(jLU, zeros)
         
-    return sLU.T, iA, jLU.T
+    return sLU.T, iLU.T, jLU.T
 
 
 def LUcsrsolve(sA, iA, jA, b):
     """
     Solves the linear system ``Ax = b`` where `A` is given in CSR format.
     
-    The matrix is decomposed using a skyline solver and
+    The matrix is decomposed using a band solver and
     then solved by successive forward and back substitution.
     
     Parameters
@@ -364,7 +389,7 @@ def LUcsrsolve(sA, iA, jA, b):
         Solution to the matrix equation.
     """
     n = len(iA) - 1
-    sA, iA, jA = LUcsr(sA, iA, jA, False)  # Sparse decomposition, while keeping zero elements on the skyline
+    sA, iA, jA = LUcsr(sA, iA, jA, False)  # Sparse decomposition, while keeping zero elements on the band
     
     right = iA[1] - iA[0]
     left = iA[-1] - iA[-2]
@@ -411,7 +436,7 @@ def LUcsrsolve(sA, iA, jA, b):
     y[0] = b[0]
     for i in range(1, n):
         s = 0
-        for k in range(i):
+        for k in range(max(0, i - left + 1), i):
             s += get_element(i, k) * y[k]
         y[i] = b[i] - s
         
@@ -419,7 +444,7 @@ def LUcsrsolve(sA, iA, jA, b):
     x[-1] = y[-1] / get_element(n-1, n-1)
     for i in range(n-2, -1, -1):
         s = 0
-        for k in range(i+1, n):
+        for k in range(i+1, min(i + right, n)):
             s += get_element(i, k) * x[k]
         x[i] = (y[i] - s) / get_element(i, i)
     return x
@@ -502,7 +527,7 @@ def RCMK(iA, jA):
         R.append(E)
         # Iterate over direct neighbours, add them by order of lowest degree
         # if they aren't yet in the queue
-        for j in range(iA[E],iA[E+1]):
+        for j in range(iA[E], iA[E+1]):
             if jA[j] not in R and jA[j] not in Qu:
                 adj += [(jA[j], deg[jA[j]])]
         sort = sorted(adj, key=lambda tup: tup[1], reverse=False)
@@ -882,7 +907,8 @@ def expFull(precision = 'report'):
     
     Various plots are created:
         
-        * density of `A` as a function of system size.
+        * density of in-place LU factorization as a function of system size.
+        * ratio of densities before and after factorisation as a function of system size.
         * density of in-place LU factorization as a function of density of `A`.
         * execution time of LUsolve as a function of system size.
         
@@ -899,7 +925,7 @@ def expFull(precision = 'report'):
     print("                     DENSE MATRICES")
     print("==========================================================")
     if precision == 'report':
-        data = range(5, 50)
+        data = range(5, 33)
     elif precision == 'test':
         data = range(20, 30)
     else:
@@ -933,6 +959,14 @@ def expFull(precision = 'report'):
     plt.title(r"Influence of original density"
               "\n"
               r"on density after decomposition")
+    plt.legend(['Data points'])
+    plt.show()
+    
+    # Density of LU/Density of A as a function of system size
+    plt.plot(size, lu_dens/a_dens, 'go')
+    plt.xlabel(r"Size of the system, $n$")
+    plt.ylabel(r"$\mathrm{dens}\, LU \,/\, \mathrm{dens} \, A$")
+    plt.title(r"Influence of size on density ratio")
     plt.legend(['Data points'])
     plt.show()
     
@@ -990,7 +1024,7 @@ def expSparse(precision = 'report'):
     print("                    SPARSE MATRICES")
     print("==========================================================")
     if precision == 'report':
-        data = range(5, 50)
+        data = range(15, 33)
     elif precision == 'test':
         data = range(20, 30)
     else:
@@ -1004,8 +1038,11 @@ def expSparse(precision = 'report'):
     exec_time_csr_solve = np.zeros(len(data), dtype = np.float64)
     exec_time_rcmk_solve = np.zeros(len(data), dtype = np.float64)
     exec_time_rcmk = np.zeros(len(data), dtype = np.float64)
+    exec_time_lu_solve = np.zeros(len(data), dtype = np.float64)
+    bandwidth = np.zeros(len(data), dtype = int)
+    bandwidth_rcmk = np.zeros(len(data), dtype = int)
     
-    spy_index = 20
+    spy_index = 15
     
     index = 0
     for i in data:
@@ -1042,6 +1079,18 @@ def expSparse(precision = 'report'):
         t1_rcmk_solve = timeit.default_timer()
         exec_time_rcmk_solve[index] = t1_rcmk_solve - t0_rcmk_solve
         
+        l, r, bw = compute_bandwidth(iA, jA)
+        l_rcmk, r_rcmk, bw_rcmk = compute_bandwidth(iA_rcmk, jA_rcmk)
+        bandwidth[index] = max(l, r) - 1
+        bandwidth_rcmk[index] = max(l_rcmk, r_rcmk) - 1
+        
+        C = np.copy(A)
+        
+        t0_lu_solve = timeit.default_timer()
+        LUsolve(C, b)
+        t1_lu_solve = timeit.default_timer()
+        exec_time_lu_solve[index] = t1_lu_solve - t0_lu_solve
+        
         LUfactorize(a_rcmk)
         LUfactorize(A)
         lu_rcmk_dens[index] = np.count_nonzero(a_rcmk)/size[index]**2
@@ -1067,6 +1116,16 @@ def expSparse(precision = 'report'):
               "\n"
               r"as a function of $\log_{10} \,n$, the size of $A$")
     plt.legend(['Data points', 'Linear fit'])
+    plt.show()
+    
+    # Bandwidth as a function of system size
+    plt.plot(size, bandwidth, 'bo', size, bandwidth_rcmk, 'ro')
+    plt.xlabel(r"Size of the system, $n$")
+    plt.ylabel(r"Bandwidth")
+    plt.title(r"Bandwidth of the matrix $A$ as a function of size"
+              "\n"
+              r"with and without reordering")
+    plt.legend(['Without RCMK', 'With RCMK'])
     plt.show()
     
     # Density of in-place LU factorization after reordering
@@ -1098,23 +1157,61 @@ def expSparse(precision = 'report'):
     # Linear regression
     csrsolvelog = np.log10(exec_time_csr_solve)
     rcmksolvelog = np.log10(exec_time_rcmk_solve)
+    lusolvelog = np.log10(exec_time_lu_solve)
     
     fit_csr_solve = np.polyfit(sizelog, csrsolvelog, 1)
     fit_fn_csr_solve = np.poly1d(fit_csr_solve)
+    fit_lu_solve = np.polyfit(sizelog, lusolvelog, 1)
+    fit_fn_lu_solve = np.poly1d(fit_lu_solve)
     fit_rcmk_solve = np.polyfit(sizelog, rcmksolvelog, 1)
     fit_fn_rcmk_solve = np.poly1d(fit_rcmk_solve)
     
-    # Logarithmic plot of LUcsr execution time
-    plt.plot(sizelog, csrsolvelog, 'bo', sizelog, rcmksolvelog, 'ro', ran, fit_fn_csr_solve(ran), '--b', ran, fit_fn_rcmk_solve(ran), '--r')
+    # Logarithmic plot of LUcsrsolve / LUsolve execution time
+    plt.plot(sizelog, csrsolvelog, 'bo', sizelog, rcmksolvelog, 'ro', sizelog, lusolvelog, 'go', ran, fit_fn_csr_solve(ran), '--b', ran, fit_fn_rcmk_solve(ran), '--r', ran, fit_fn_lu_solve(ran), '--g')
     plt.xlabel(r"Size of the system, $\log_{10} \, n$")
-    plt.ylabel(r"Execution time of LUcsr $[\log_{10} \, \mathrm{s}]$")
-    plt.title(r"Execution time of LUcsr on a logarithmic scale"
+    plt.ylabel(r"Execution time of LUcsrsolve / LUsolve $[\log_{10} \, \mathrm{s}]$")
+    plt.title(r"Execution time of LUcsrsolve / LUsolve on a logarithmic scale"
               "\n"
               r"as a function of $\log_{10} \, n$, the size of $A$")
-    plt.legend(['Original matrix', 'Reordered matrix', 'Linear fit (original)', 'Linear fit (reordered)'])
+    plt.legend(['Original matrix, CSR', 'Reordered matrix, CSR', 'Original matrix, full', 'Linear fit (original, CSR)', 'Linear fit (reordered, CSR)', 'Linear fit (original, full)'])
     plt.show()
 
 
 if __name__ == "__main__":
-    expFull(precision='report')
-    expSparse(precision='report')
+    #expFull(precision='report')
+    #expSparse(precision='report')
+    ran = range(24, 33)
+    bv = np.zeros(len(ran), dtype = np.float64)
+    t_rcmk = np.zeros(len(ran), dtype = np.float64)
+    t = np.zeros(len(ran), dtype = np.float64)
+    n = np.zeros(len(ran), dtype = np.float64)
+    for i in ran:
+        j = i-ran[0]
+        A, b = ccore(i)
+        sA, iA, jA = CSRformat(A)
+        n[j] = len(A)
+        
+        t0 = timeit.default_timer()
+        r = RCMK(iA, jA)
+        t1 = timeit.default_timer()
+        t_rcmk[j] = t1-t0
+        
+        N = (A[r, :])[:, r]
+        sN, iN, jN = CSRformat(N)
+        b_rcmk = b[r]
+        
+        l, r, bw = compute_bandwidth(iN, jN)
+        bv[j] = max(l, r) - 1
+        
+        t2 = timeit.default_timer()
+        r = LUcsrsolve(sN, iN, jN, b_rcmk)
+        t3 = timeit.default_timer()
+        t[j] = t3-t2
+        
+    rat1 = n[-1] * bv[-1] * np.log(bv[-1])
+    rat2 = n[-1] * bv[-1]**2
+    
+    for i in ran:
+        j = i-ran[0]
+        print("%.3f & %.3f & %.3f (expected %.3f) & %.3f (expected %.3f)" %(n[j]/float(n[-1]), bv[j]/float(bv[-1]), t_rcmk[j]/float(t_rcmk[-1]), n[j]*bv[j]*np.log(bv[j])/rat1, t[j]/float(t[-1]), n[j]*bv[j]*bv[j]/rat2))
+        
