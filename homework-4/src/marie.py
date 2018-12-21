@@ -23,8 +23,8 @@ def mysolve(A, b):
         return True, scipy.sparse.linalg.spsolve(A, b)
     #elif SolverType == 'QR':
         # write here your code for the QR solver
-    #elif SolverType == 'LU':
-    #    return True, LUsolve(A, b)
+    elif SolverType == 'LU':
+        return True, LUsolve(A, b)
         # write here your code for the LU solver
     #elif SolverType == 'GMRES':
         # write here your code for the LU solver
@@ -47,14 +47,16 @@ def CSRformat(A):
         
     return (np.array(sA,dtype=np.float64),np.array(iA,dtype=int),np.array(jA,dtype=int))
 
-def csrCG(sA,iA,jA,b,rtol,prec):
+def csrCG(sA,iA,jA,b,rtol,prec,it=False):
     n=len(b)
     x=0
+    k=0
     if prec == False:
         r=np.copy(b)
         p= np.copy(r)
-        k=0
+        residu=[]
         while np.linalg.norm(r)/np.linalg.norm(b) > rtol:
+            residu.append(np.linalg.norm(r))
             old= np.copy(r)
             Ap= product_CSR(sA,iA,jA,p)
             alpha=np.dot(r,r)/np.dot(p,Ap)
@@ -63,15 +65,14 @@ def csrCG(sA,iA,jA,b,rtol,prec):
             betha= np.dot(r,r)/np.dot(old,old)
             p = r + betha*p
             k+=1
-        print(k)
-        return x,r
     else:
         sM,iM,jM= ILU0(sA,iA,jA,remove=False)
         r=np.copy(b)
         rtild=CSRsolve(sM,iM,jM,r)
         p=np.copy(rtild)
-        k=0
+        residu=[]
         while np.linalg.norm(r)/np.linalg.norm(b) > rtol:
+            residu.append(np.linalg.norm(r))
             old= np.copy(r)
             oldtild=np.copy(rtild)
             Ap= product_CSR(sA,iA,jA,p)
@@ -80,9 +81,13 @@ def csrCG(sA,iA,jA,b,rtol,prec):
             r= old - alpha*Ap
             rtild=CSRsolve(sM,iM,jM,r)
             betha= np.dot(r,rtild)/np.dot(old,oldtild)
-            p = rtild + betha*p
+            p = rtild + betha*p 
             k+=1
-        print(k)
+            
+        #print(k)
+    if it:
+        return x,residu,k
+    else:
         return x,r
 
         
@@ -95,24 +100,10 @@ def product_CSR(sA,iA,jA,p):
     return product
 
 
-#def Find_diag(sA,iA,jA):
-#    n= len(iA)-1
-#    diag=np.zeros(n,dtype=int)
-#    for i in range(n):
-#        for j in range(iA[i],iA[i+1]):
-#            if jA[j]==i:
-#                diag[i]=j
-#                break
-#    return diag
-    
-#def get_elem(sA, iA, jA, k, j):
-#    n = len(iA)-1
-#    for l in range(iA[k], iA[k+1]):
-#        if jA[l] == j:
-#            return sA[l]
-#    return 0
+
                    
-def ILUtest(A):
+def ILUtest(B):
+    A = np.copy(B)
     n=len(A)
     for i in range(1,n):
         for k in range(i):
@@ -123,18 +114,6 @@ def ILUtest(A):
                         A[i,j]-=A[i,k]*A[k,j]
     return A
 
-#def ILU0(sA,iA,jA):
-#    n=len(iA)-1
-#    diag=Find_diag(sA,iA,jA)
-#    for i in range(1,n):
-#        for l in range(iA[i], diag[i]):
-#            k = jA[l]
-#            sA[l]=sA[l]/sA[diag[k]]
-#            for jj in range(l+1, iA[i+1]):
-#                j = jA[jj]
-#                sA[jj] -= sA[l]*get_elem(sA, iA, jA, k, j)            
-#                
-#    return sA, iA, jA
 
     
 def GAUCHE_DROITE(sA, iA, jA):
@@ -230,7 +209,7 @@ def ILU0(sA,iA,jA,remove=True):
                         j = jLU[jj]
                         sLU[jj] -= sLU[l]*element(k,j)
     if remove == True:                                
-        zeros = np.where(abs(sLU) == 0.0)[0]
+        zeros = np.where(abs(sLU) < 3e-16)[0]
         if len(zeros) > 0:                  
             count=0
             line=1
@@ -245,73 +224,63 @@ def ILU0(sA,iA,jA,remove=True):
             jLU = np.delete(jLU, zeros)
     return sLU.T,iLU,jLU.T
 
-def CSRsolve(sA, iA, jA, b):
 
-    n = len(iA) - 1  # Sparse decomposition, while keeping zero elements on the band
-    
+def CSRsolve(sA,iA,jA,b):
+    n=len(iA)-1
     right = iA[1] - iA[0]
     left = iA[-1] - iA[-2]
-    bandwidth = left + right - 1
+    bandwidth = left+right-1
     
-    def get_element(i, j):
-        """
-        Returns the value element `(i, j)` in `A` by looking in sA.
-        
-        Parameters
-        ----------
-        i : int
-            Index of the row of the element.
-        j : int
-            Index of the column of the element.
-                
-        Returns
-        -------
-        elem : int
-            Element in sA.
-        """
-        iright = i + right
-        if j >= iright or j <= i - left:
+    def element(i,j):
+        r=i+right
+        l=i-left
+        if j >= r or j <= l:
             return 0
-        
-        index = i*bandwidth + (j-i)
-        left2 = left-2
-        ng = left2*(left2+1)/2
-        left2i = left2 - i
-        if left2i > 0:
-            ng -= (left2i)*(left2i+1)/2
-            
-        nd = 0
-        if iright > n:
-            delta = iright - n
-            nd = delta*(delta-1)/2
-            
-        return sA[int(index - ng - nd)]
+        band=i*bandwidth
+        index=band-i+j
+        nl = ((left-2)*(left-1))//2
+        nr = 0
+        if left-2-i > 0:
+            nl -= (left-2-i)*(left-1-i)//2
+        if r > n:
+            delta1=r-n
+            delta = delta1 - 1
+            nr = delta*(delta1)//2
+        elem=index-nl-nr
+        return sA[elem]
     
-    x = np.zeros(n, dtype = complex)
-    y = np.zeros(n, dtype = complex)
+    def ForwardSubCSR(b):
+        y = np.zeros(n,dtype=np.float64)
+        y[0]=b[0]
+        for i in range(1,n):
+            prod=0
+            for k in range(i):
+                prod+=element(i,k)*y[k]
+                y[i] = b[i] - prod
+        return y
 
-    # Forward substitution to solve Ly = b for y
-    y[0] = b[0]
-    for i in range(1, n):
-        s = 0
-        for k in range(max(0, i - left + 1), i):
-            s += get_element(i, k) * y[k]
-        y[i] = b[i] - s
-        
-    # Back substitution to solve Ux = y for x
-    x[-1] = y[-1] / get_element(n-1, n-1)
-    for i in range(n-2, -1, -1):
-        s = 0
-        for k in range(i+1, min(i + right, n)):
-            s += get_element(i, k) * x[k]
-        x[i] = (y[i] - s) / get_element(i, i)
-    return x
+    def BackwardSubCSR(y):
+        x = np.zeros(n,dtype=np.float64)
+        x[n-1] = y[n-1]/element(n-1, n-1)
+        for i in range(n-2,-1,-1):
+            diag = element(i,i)
+            prod=0
+            for k in range(i+1, n):
+                prod+=element(i,k)*x[k]
+                x[i] = (y[i] -prod)/diag
+        return x
+    
+    y = ForwardSubCSR(b)
+    x = BackwardSubCSR(y)
+
+    return x.T
 
 
-def ccore(clscale):
-    # mesh refinement 1:fine 10:coarse 50:very coarse
-    mur = 100.     # Relative magnetic permeability of region CORE 1:air 1000:steel
-    gap = 0.001     # air gap lenght in meter
+
+def ccore(clscale,mur,gap):
+    #clscale=10# mesh refinement 1:fine 10:coarse 50:very coarse
+    #mur=1000# Relative magnetic permeability of region CORE 1:air 1000:steel
+    #gap = 0.001     # air gap lenght in meter
     
     
     DEBUG = False
@@ -648,38 +617,99 @@ def ccore(clscale):
     mat, vec = solve()
     return np.array(mat, dtype=np.float64), vec
 
-def ExpPlein():
+def RE(sA,iA,jA):
+    # Fonction qui prend en argument une matrice en format CSR, et qui la
+    # renvoie en format plein.
+    n = len(iA)-1
+    A = np.zeros((n,n))
+    for i in range(n):
+        A[i][jA[iA[i]:iA[i+1]]] = sA[iA[i]:iA[i+1]]
+    return A
+
+def Exp_cond():
     condM=[]
     condA=[]
     size=[]
-    for i in range(20,21):
-        rtol=1e-3
-        A, b = ccore(i)
+    Res=[]
+    ResP=[]
+    K1=[]
+    K2=[]
+    clscale=10
+    mur=1000
+#    gap=0.001
+    rtol=1e-6
+    
+    for i in range(5,50,1):
+        i=i/10000
+        A, b = ccore(clscale,mur,i)
         n=len(A)
-        size.append(n)
-        sA,iA,jA=CSRformat(A)
-        x,r=csrCG(sA,iA,jA,b,rtol,True)
-        xA,rA=csrCG(sA,iA,jA,b,rtol,False)
-        condA.append(np.linalg.cond(A))
+        size.append(i)
+        
         B=np.copy(A)
-        M= ILUtest(A)
-        Ltest = np.eye(n) + np.tril(M,-1)
+        sA,iA,jA=CSRformat(B)
+        
+        sM,iM,jM= ILU0(sA,iA,jA)
+        M =RE(sM,iM,jM)
+        
+        Ltest = np.eye(len(M)) + np.tril(M,-1)
         Utest = np.triu(M)
-        condM.append(np.linalg.cond(np.linalg.inv(Ltest)@Utest))
-        
-    print(condA[0]/condM[0])
-        
-    #plots des différentes densités
-    plt.plot(size,condA, 'bo', label='factorisation LU pleine')
-    plt.plot(size,condM,'ro', label='matrice A initiale')
-    plt.legend()
-    plt.xlabel('Taille de la matrice carrée A')
-    plt.ylabel('densité de la matrice A')
-    plt.title("Densité de la matrice A\n en fonction de la taille du système" )
-    plt.show()
+        inv=np.linalg.inv(Ltest @ Utest)
+        MA=inv @ B
+        condM.append(np.linalg.cond(MA))
+        condA.append(np.linalg.cond(B))
+#        Ab =np.linalg.eigvals(B)
+#        Bc =np.linalg.eigvals(MA)
+#        maxi=max(Bc)/min(Bc)
+#        mini=max(Ab)/min(Ab)
 
+
+    #plots des différents conditionnements 
+    ##CLSCALE 10-30
+#    plt.plot(size,condA, 'bo', label='Non-préconditionné')
+#    plt.plot(size,condM,'ro', label='Préconditionné')
+#    plt.legend()
+#    plt.ylabel('Nombre de conditionnement')
+#    plt.xlabel('Taille de la matrice')
+#    plt.title("Nombre de conditionnement \n en fonction de la taille de la matrice" )
+#    plt.show()
+    ##MUR 1,1000,10
+#    plt.plot(size,condA, 'bo', label='Non-préconditionné')
+#    plt.plot(size,condM,'ro', label='Préconditionné')
+#    plt.legend()
+#    plt.ylabel('Nombre de conditionnement')
+#    plt.xlabel('Perméabilité relative')
+#    plt.title("Nombre de conditionnement \n en fonction de la perméabilité relative" )
+#    plt.show()
+    ##GAP
+    plt.plot(size,condA, 'bo', label='Non-préconditionné')
+    plt.plot(size,condM,'ro', label='Préconditionné')
+    plt.legend()
+    plt.ylabel('Nombre de conditionnement')
+    plt.xlabel("largeur de l'entrefer [m]")
+    plt.title("Nombre de conditionnement \n en fonction de la largeur de l'entrefer" )
+    plt.show()
+ #clscale constant et mur constant   
+#    plt.semilogy(range(k1),Res[0],'bo')
+#    plt.semilogy(range(k2),ResP[0],'ro')
+#    plt.show()
+ 
+#    plt.plot(np.log(range(k1)),np.log(Res[0]),'bo')
+#    plt.plot(np.log(range(k2)),np.log(ResP[0]),'ro')
+#    plt.show()
+    
+#    plt.plot(range(k1),Res[0],'b')
+#    plt.plot(range(k2),ResP[0],'r')
+#    plt.show()
+ 
+#    plt.plot(np.log2(condA),np.log2(K1),'bo')
+#    plt.plot(np.log10(condM),np.log10(K2),'ro')
+#    plt.show()
+#    
+#    plt.bar(range(size[0]),sorted(Ab),log=True)
+#    plt.bar(range(size[0]),sorted(Bc),log=True)
+#    plt.show()
 if __name__ == "__main__":
-    ExpPlein()
+    Exp_cond()
 #    A,b= ccore(20)
 #    sA,iA,jA= CSRformat(A)
 #    x,r = csrCG(sA,iA,jA,b,1e-6,True)

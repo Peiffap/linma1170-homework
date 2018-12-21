@@ -111,8 +111,8 @@ def ILU0(sA, iA, jA, remove_zeros=True):
     nright = n - right
     size = int(n*n - (nleft*(nleft + 1) + (nright*(nright + 1)))/2)
     sLU = np.zeros(size, dtype = np.float64)
-    iLU = np.zeros(len(iA), dtype = int)
-    jLU = np.zeros(size)
+    iLU = np.zeros(len(iA), dtype = np.int32)
+    jLU = np.zeros(size, dtype = np.int32)
     curr_index = 0
     
     for i in range(n):
@@ -135,7 +135,6 @@ def ILU0(sA, iA, jA, remove_zeros=True):
             jLU[curr_index:curr_index + n] = range(n)
             curr_index += n
     iLU[-1] = size
-    
     
     # Incomplete LU decomposition
     for i in range(1, n):

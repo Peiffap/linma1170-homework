@@ -50,7 +50,6 @@ def testCG():
     (x_test, res) = CG.csrCG(sA,iA,jA,b,rtol,prec)
     print("Solution via votre CG \n x : ",x_test)
     
-    
     if(np.linalg.norm(x_test - x[0])/np.linalg.norm(b) <= rtol):
         print("Test réussi !!!")
     else :
@@ -59,7 +58,7 @@ def testCG():
     
     
 def testPCG(): 
-    n = 15
+    n = 3
     A = creatDF(n)
     b = np.ones(n*n)
     rtol = 1e-6
